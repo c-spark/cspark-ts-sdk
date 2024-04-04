@@ -1,11 +1,13 @@
-import { HttpResponse } from '../http';
+import { type Readable } from 'stream';
+import { HttpResponse, Multipart, getRetryTimeout } from '../http';
 import { Serializable } from '../data';
 import { SparkError } from '../error';
-import Utils, { StringUtils } from '../utils';
+import { Config } from '../config';
+import Utils, { StringUtils, DateUtils } from '../utils';
 
-import { ApiResource, Uri, UriParams } from './base';
+import { ApiResource, ApiResponse, Uri, UriParams } from './base';
 import { BatchService } from './batch';
-import { ImpEx } from './impex';
+import { ImpEx, ExportResult, ImportResult } from './impex';
 import { History } from './history';
 
 export class Service extends ApiResource {
@@ -17,11 +19,82 @@ export class Service extends ApiResource {
     return new History(this.config);
   }
 
-  execute(uri: string | Omit<UriParams, 'version'>, params: ExecBodyParams = {}): Promise<HttpResponse> {
-    const url = Uri.from(Uri.toParams(uri), { base: this.config.baseUrl.full, endpoint: 'execute' });
-    const body = parseBodyParams(params, { callPurpose: 'Spark JS SDK', compilerType: 'Neuron' });
+  async create(uri: string | Pick<UriParams, 'folder' | 'service'>, params: CreateBodyParams) {
+    const { folder, service } = Uri.toParams(uri);
+    const upload = await this.upload(uri, params);
+    const {
+      nodegen_compilation_jobid: jobId,
+      engine_file_documentid: engineId,
+      original_file_documentid: fileId,
+    } = upload.data.response_data;
 
-    return this.request(url.value, { method: 'POST', body });
+    const status = await this.getCompilationStatus({ folder: folder!, service: service!, jobId });
+
+    return this.publish({ folder, service, fileId, engineId, ...params }).then((response) => {
+      return { upload: upload.data, compilation: status.data, publication: response.data };
+    });
+  }
+
+  upload(uri: string | Pick<UriParams, 'folder' | 'service'>, params: UploadBodyParams) {
+    const url = Uri.from(Uri.toParams(uri), { base: this.config.baseUrl.full, endpoint: 'upload' });
+    const [startDate, endDate] = DateUtils.parse(params.startDate, params.endDate);
+    const metadata = {
+      request_data: {
+        version_difference: params.versioning ?? 'minor',
+        effective_start_date: startDate.toISOString(),
+        effective_end_date: endDate.toISOString(),
+      },
+    };
+    const multiparts: Multipart[] = [
+      { name: 'engineUploadRequestEntity', data: metadata },
+      { name: 'serviceFile', fileStream: params.file },
+    ];
+
+    return this.request<ServiceUploaded>(url.value, { method: 'POST', multiparts });
+  }
+
+  async getCompilationStatus(uri: CompilationStatusUriParams) {
+    const { jobId, maxRetries = 20, ...params } = Uri.toParams(uri);
+    const url = Uri.from(params, { base: this.config.baseUrl.full, endpoint: `getcompilationprogess/${jobId}` });
+
+    let retries = 0;
+    let response = await this.request<CompilationStatus>(url.value);
+    while (response.data.response_data.progress < 100 && retries < maxRetries) {
+      response = await this.request<CompilationStatus>(url.value);
+      const { status, progress } = response.data.response_data;
+      if (progress == 100 || status === 'Success') return response;
+
+      console.log(`[INFO]: waiting for compilation job to complete - ${progress || 0}%`);
+      await new Promise((resolve) => setTimeout(resolve, getRetryTimeout(3, 3)));
+      retries++;
+    }
+    throw SparkError.sdk({ message: 'compilation job status timed out' });
+  }
+
+  publish(params: PublishUriParams) {
+    const { folder, service } = params;
+    const [startDate, endDate] = DateUtils.parse(params.startDate, params.endDate);
+    const url = Uri.from({ folder, service }, { base: this.config.baseUrl.full, endpoint: 'publish' });
+    const body = {
+      request_data: {
+        draft_service_name: params.draftName ?? service,
+        effective_start_date: startDate.toISOString(),
+        effective_end_date: endDate.toISOString(),
+        original_file_documentid: params.fileId,
+        engine_file_documentid: params.engineId,
+        version_difference: params.versioning ?? 'minor',
+        should_track_user_action: `${params.trackUser ?? false}`,
+      },
+    };
+
+    return this.request<ServicePublished>(url.value, { method: 'POST', body });
+  }
+
+  execute(uri: string | Omit<UriParams, 'version'>, params: ExecBodyParams = {}) {
+    const url = Uri.from(Uri.toParams(uri), { base: this.config.baseUrl.full, endpoint: 'execute' });
+    const body = parseExecBodyParams(params, { callPurpose: 'Spark JS SDK', compilerType: 'Neuron' });
+
+    return this.request<ServiceExecuted>(url.value, { method: 'POST', body });
   }
 
   getSchema(uri: string | Pick<UriParams, 'folder' | 'service'>): Promise<HttpResponse> {
@@ -56,7 +129,7 @@ export class Service extends ApiResource {
 
   validate(uri: string | Omit<UriParams, 'version'>, params: ExecBodyParams = {}): Promise<HttpResponse> {
     const url = Uri.from(Uri.toParams(uri), { base: this.config.baseUrl.full, endpoint: 'validation' });
-    const body = parseBodyParams(params, {});
+    const body = parseExecBodyParams(params, {});
 
     return this.request(url.value, { method: 'POST', body });
   }
@@ -73,8 +146,7 @@ export class Service extends ApiResource {
   recompile(uri: string | RecompileUriParams): Promise<HttpResponse> {
     const { folder, service, versionId, releaseNotes, ...params } = Uri.toParams(uri);
     const url = Uri.from({ folder, service }, { base: this.config.baseUrl.full, endpoint: 'recompileNodgen' });
-    const now = new Date();
-    const until = new Date(now.getFullYear() + 10, now.getMonth(), now.getDate());
+    const [startDate, endDate] = DateUtils.parse(params.startDate, params.endDate);
     const data = {
       versionId,
       releaseNotes: releaseNotes ?? 'Recompiled via Spark JS SDK',
@@ -82,15 +154,15 @@ export class Service extends ApiResource {
       neuronCompilerVersion: params.compiler ?? 'StableLatest',
       tags: Array.isArray(params.tags) ? params.tags.join(',') : params?.tags,
       versionLabel: params?.label,
-      effectiveStartDate: params?.startDate ?? now.toISOString(),
-      effectiveEndDate: params?.endDate ?? until.toISOString(),
+      effectiveStartDate: startDate.toISOString(),
+      effectiveEndDate: endDate.toISOString(),
     };
 
     return this.request(url.value, { method: 'POST', body: { request_data: data } });
   }
 
-  async export(uri: string | ExportUriParams) {
-    const impex = new ImpEx(this.config);
+  async export(uri: string | ExportUriParams): Promise<HttpResponse<ExportResult>[]> {
+    const impex = ImpEx.with(this.config);
     const { folder, service, version, versionId, retries = this.config.maxRetries + 2, ...params } = Uri.toParams(uri);
     const serviceUri = Uri.encode({ folder, service, version }, false);
 
@@ -108,22 +180,62 @@ export class Service extends ApiResource {
       throw new SparkError('export job failed to produce any files', status);
     }
 
-    const downloads = [];
+    const downloads: HttpResponse<ExportResult>[] = [];
     for (const file of status.data.outputs.files) {
       if (!file.file) continue;
       try {
-        downloads.push(await this.request(file.file)); // confirm MD5 hash?
+        downloads.push(await this.request<ExportResult>(file.file)); // confirm MD5 hash?
       } catch (cause) {
         console.warn(`[WARNING]: failed to download file <${file.file}>`, cause);
       }
     }
     return downloads;
   }
+
+  async import(uri: ImportUriParams): Promise<HttpResponse<ImportResult>> {
+    const config = uri.config ?? this.config;
+    const impex = ImpEx.with(config);
+    const { folder, service, retries = config.maxRetries + 3, ...params } = Uri.toParams(uri);
+
+    const response = await impex.import.initiate({ service: Uri.encode({ folder, service }, false), ...params });
+    const jobId = response.data?.id;
+    if (!jobId) throw new SparkError('failed to produce an import job', response);
+    console.log(`[INFO]: import job created <${jobId}>`);
+
+    return impex.import.getStatus(jobId, { maxRetries: retries });
+  }
+
+  async migrate(params: MigrateUriParams) {
+    const exported = await this.export(params);
+    if (exported.length === 0) throw new SparkError('failed to export any files');
+    const imported = await this.import({ ...params, file: exported[0].buffer });
+
+    return { exports: exported, imports: imported };
+  }
 }
 
 interface ExportUriParams extends Pick<UriParams, 'folder' | 'service' | 'version' | 'versionId'> {
   filters?: { file?: 'migrate' | 'onpremises'; version?: 'latest' | 'all' };
-  source?: string;
+  sourceSystem?: string;
+  correlationId?: string;
+  retries?: number;
+}
+
+interface ImportUriParams extends Pick<UriParams, 'folder' | 'service'> {
+  file: Readable;
+  ifPresent?: 'abort' | 'replace' | 'add_version';
+  sourceSystem?: string;
+  correlationId?: string;
+  retries?: number;
+  config?: Config;
+}
+
+interface MigrateUriParams extends Pick<UriParams, 'folder' | 'service' | 'version' | 'versionId'> {
+  /** The target configuration for the import operation. */
+  config: Config;
+  filters?: { file?: 'migrate' | 'onpremises'; version?: 'latest' | 'all' };
+  ifPresent?: 'abort' | 'replace' | 'add_version';
+  sourceSystem?: string;
   correlationId?: string;
   retries?: number;
 }
@@ -134,8 +246,8 @@ interface RecompileUriParams extends Pick<UriParams, 'folder' | 'service' | 'ver
   compiler?: string;
   releaseNotes?: string;
   label?: string;
-  startDate?: string;
-  endDate?: string;
+  startDate?: number | string | Date;
+  endDate?: number | string | Date;
 }
 
 interface DownloadUriParams extends Pick<UriParams, 'folder' | 'service' | 'version'> {
@@ -207,7 +319,7 @@ type ExecBody = {
   };
 };
 
-function parseBodyParams(
+function parseExecBodyParams(
   { data = {}, inputs: initialInputs, raw }: ExecBodyParams,
   defaultValues: Record<string, string>,
 ): ExecBody {
@@ -245,4 +357,80 @@ function parseBodyParams(
   } else {
     return { request_data: { inputs: inputs ?? {} }, request_meta: metadata };
   }
+}
+
+interface UploadBodyParams {
+  file: Readable;
+  versioning?: 'major' | 'minor' | 'patch';
+  startDate?: string | number | Date;
+  endDate?: string | number | Date;
+}
+
+interface ServiceApiResponse<TData, TMeta = Record<string, any>> extends Pick<ApiResponse, 'status' | 'error'> {
+  response_data: TData;
+  response_meta: TMeta;
+}
+
+type ServiceUploaded = ServiceApiResponse<{
+  lines_of_code: number;
+  hours_saved: number;
+  nodegen_compilation_jobid: string;
+  original_file_documentid: string;
+  engine_file_documentid: string;
+  warnings: any[] | null;
+  current_statistics: any | null;
+  no_of_sheets: number;
+  no_of_inputs: number;
+  no_of_outputs: number;
+  no_of_formulas: number;
+  no_of_cellswithdata: number;
+}>;
+
+type ServiceExecuted = ServiceApiResponse<{
+  outputs: Record<string, any>;
+  warnings: any[] | null;
+  errors:
+    | null
+    | {
+        error_category: string;
+        error_type: string;
+        additional_details: string;
+        source_path: string;
+        message: string;
+      }[];
+  service_chain: any[] | null;
+}>;
+
+type CompilationStatus = ServiceApiResponse<{
+  status: string;
+  last_error_message: string;
+  progress: number;
+}>;
+
+interface CompilationStatusUriParams extends Pick<UriParams, 'folder' | 'service'> {
+  readonly folder: string;
+  readonly service: string;
+  readonly jobId: string;
+  /** Defaults to `Config.maxRetries` */
+  readonly maxRetries?: number;
+}
+
+interface PublishUriParams extends Pick<UriParams, 'folder' | 'service'> {
+  fileId: string;
+  engineId: string;
+  draftName?: string;
+  startDate?: string | number | Date;
+  endDate?: string | number | Date;
+  versioning?: 'major' | 'minor' | 'patch';
+  trackUser?: boolean;
+}
+
+type ServicePublished = ServiceApiResponse<{
+  version_id: string;
+}>;
+
+interface CreateBodyParams extends UploadBodyParams {
+  draftName?: string;
+  versioning?: 'major' | 'minor' | 'patch';
+  trackUser?: boolean;
 }

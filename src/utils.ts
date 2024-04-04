@@ -11,7 +11,7 @@ async function bootstrapModules(names: string[]) {
   }
 }
 
-bootstrapModules(['fs', 'stream', 'crypto', 'form-data']); // FIXME: use shims instead.
+bootstrapModules(['fs', 'stream', 'crypto', 'form-data', 'buffer']); // FIXME: use shims instead.
 
 export function isBrowser() {
   return typeof window === 'object' && typeof document === 'object' && window.crypto;
@@ -120,6 +120,37 @@ export abstract class NumberUtils {
   }
 }
 
+export abstract class DateUtils {
+  static isDate(value: unknown): boolean {
+    if (value instanceof Date) return true;
+    if (typeof value === 'string' || typeof value === 'number') {
+      return !Number.isNaN(Date.parse(value.toString()));
+    }
+    return false;
+  }
+
+  static parse(
+    start: Maybe<number | string | Date>,
+    end?: Maybe<number | string | Date>,
+    { years = 10, months = 0, days = 0 }: { days?: number; months?: number; years?: number } = {},
+  ): [Date, Date] {
+    const startDate = new Date(start ?? Date.now());
+    const endDate =
+      end && DateUtils.isAfter(end, startDate)
+        ? new Date(end)
+        : new Date(startDate.getFullYear() + years, startDate.getMonth() + months, startDate.getDate() + days);
+    return [startDate, endDate];
+  }
+
+  static isBefore(date: string | number | Date, when: Date): boolean {
+    return new Date(date).getTime() < when.getTime();
+  }
+
+  static isAfter(date: string | number | Date, when: Date): boolean {
+    return new Date(date).getTime() > when.getTime();
+  }
+}
+
 export default {
   readEnv,
   isEmptyObject,
@@ -131,6 +162,4 @@ export default {
   readFile,
   formatUrl,
   getUuid,
-  StringUtils,
-  NumberUtils,
 };

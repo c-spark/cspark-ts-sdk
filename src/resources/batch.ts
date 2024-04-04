@@ -14,7 +14,7 @@ export class BatchService extends ApiResource {
   execute(uri: Omit<UriParams, 'proxy' | 'versionId'>, bodyParams: BodyParams = {}): Promise<HttpResponse> {
     const { folder, service, version, ...params } = uri;
     const url = Uri.from(params, { base: this.config.baseUrl.full, version: 'api/v4', endpoint: 'execute' });
-    const serviceUri = Uri.encode({ folder, service, version });
+    const serviceUri = Uri.encode({ folder, service, version }, false);
     const body = parseBodyParams(bodyParams, { serviceUri, callPurpose: 'Spark JS SDK' });
 
     return this.request(url.value, { method: 'POST', body });

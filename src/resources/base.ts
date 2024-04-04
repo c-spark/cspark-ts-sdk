@@ -35,7 +35,7 @@ export abstract class ApiResource {
 /**
  * Optional parameters for building a Spark URI.
  *
- * Spark may use different parameters to build a Spark URI to locate a specific
+ * Spark may use distinct parameters to build a Spark URI to locate a specific
  * resource. Roughly speaking, Spark is structured such that a folder contains
  * services, and a service contains versions. However, a service may also have a
  * custom endpoint (a.k.a proxy endpoint), and a version may be public.
@@ -44,8 +44,8 @@ export abstract class ApiResource {
  *
  * @param folder - the folder name
  * @param service - the service name
- * @param serviceId - the service (UUID)
- * @param version - the semantic version (a.k.a revision number - e.g., 4.2.1)
+ * @param serviceId - the service ID (UUID)
+ * @param version - the semantic version (a.k.a revision number - e.g., "4.2.1")
  * @param versionId - the version ID
  * @param proxy - the custom endpoint a.k.a proxy
  * @param public - whether the endpoint is public
@@ -68,7 +68,7 @@ export interface UriParams {
  * throw `SparkError` if the input is invalid.
  *
  * As specified in the `UriParams` interface, there are two main formats a user can
- * use to pass in the parameters to build a Spark URI: string or UriParams.
+ * use to pass in the parameters to build a Spark URI: `string` or `UriParams`.
  *
  * Should a user pass in a string, the `Uri` will attempt to parse it and extract
  * the UriParams from the following:
@@ -82,7 +82,7 @@ export interface UriParams {
  * IMPORTANT:
  * Spark URIs' formats may vary depending on the action to be performed
  * (e.g., upload, execute, download, etc.) due to API versioning and endpoint
- * requirements.  Therefore, the `Uri` helper is designed to be flexible enough to
+ * requirements. Therefore, the `Uri` helper is designed to be flexible enough to
  * handle different formats.
  */
 export class Uri {

@@ -1,4 +1,4 @@
-import { createWriteStream } from 'fs';
+import { createWriteStream, createReadStream } from 'fs';
 import { type SparkClient } from '../src';
 
 function getMetadata(spark: SparkClient) {
@@ -32,10 +32,10 @@ function getSwagger(spark: SparkClient) {
 function validate(spark: SparkClient) {
   spark.service
     .validate('my-folder/my-service', {
-      data: { inputs: { '01_letter': 'b', '02_number': 23 }, validationType: 'dynamic' },
+      data: { inputs: { letter: 'b', number: 23 }, validationType: 'dynamic' },
     })
     .then((response) => console.log(JSON.stringify(response.data, null, 2)))
-    .catch((err) => console.error(JSON.stringify(err.cause, null, 2)));
+    .catch(console.error);
 }
 
 function download(spark: SparkClient) {
@@ -67,6 +67,22 @@ function exportAsZip(spark: SparkClient) {
     .catch(console.error);
 }
 
+function importFromZip(spark: SparkClient) {
+  const file = createReadStream('package.zip');
+  spark.service
+    .import({ folder: 'my-folder', service: 'my-service', file })
+    .then((response) => console.log(response.data))
+    .catch(console.error);
+}
+
+function migrate(spark: SparkClient) {
+  const config = spark.config.copyWith({ env: 'prod', apiKey: 'other-key' }); // my import config
+  spark.service
+    .migrate({ folder: 'my-folder', service: 'my-service', config })
+    .then((job) => console.log(job.imports))
+    .catch(console.error);
+}
+
 function execute(spark: SparkClient) {
   const data = { inputs: { value: 'Hello, Spark SDK' }, versionId: 'uuid' };
   spark.service
@@ -92,6 +108,8 @@ export default {
   download,
   recompile,
   export: exportAsZip,
+  import: importFromZip,
+  migrate,
   execute,
   batchSync,
 };

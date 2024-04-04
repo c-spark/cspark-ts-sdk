@@ -8,6 +8,7 @@ import { DEFAULT_MAX_RETRIES, DEFAULT_TIMEOUT_IN_MS, ENV_VARS } from './constant
 
 export class Config {
   readonly #options!: string;
+  readonly #interceptors: Set<Interceptor> = new Set<Interceptor>();
 
   readonly baseUrl!: BaseUrl;
   readonly auth!: Authorization;
@@ -15,9 +16,7 @@ export class Config {
   readonly maxRetries!: number;
   readonly timeout!: number;
   readonly allowBrowser!: boolean;
-
   readonly extraHeaders: Record<string, string> = {};
-  readonly #interceptors: Set<Interceptor> = new Set<Interceptor>();
 
   constructor({
     baseUrl = Utils.readEnv(ENV_VARS.BASE_URL),
@@ -78,6 +77,19 @@ export class Config {
   addHeaders(headers: Record<string, string>): void {
     Object.entries(headers).forEach(([key, value]) => {
       this.extraHeaders[key] = value;
+    });
+  }
+
+  copyWith(options: ClientOptions = {}): Config {
+    return new Config({
+      baseUrl: options.baseUrl || this.baseUrl.full,
+      apiKey: options.apiKey || this.auth.apiKey,
+      token: options.token || this.auth.token,
+      oauth: options.oauth || this.auth.oauth,
+      timeout: options.timeout || this.timeout,
+      maxRetries: options.maxRetries || this.maxRetries,
+      allowBrowser: options.allowBrowser || this.allowBrowser,
+      env: options.env || this.environment,
     });
   }
 

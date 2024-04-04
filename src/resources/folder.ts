@@ -1,7 +1,8 @@
+import { Buffer } from 'buffer';
 import { Serializable } from '../data';
 import { SparkApiError } from '../error';
 import { HttpResponse, Multipart } from '../http';
-import { StringUtils } from '../utils';
+import { DateUtils, StringUtils } from '../utils';
 
 import { ApiResource, Uri, ApiResponse } from './base';
 
@@ -14,16 +15,15 @@ export class Folder extends ApiResource {
   async create(params: string | CreateParams): Promise<HttpResponse<FolderCreated>> {
     const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint: 'product/create' });
     const createParams = (StringUtils.isString(params) ? { name: params } : params) as CreateParams;
-    const { name, category = 'Other', description, launchDate, startDate, status, cover } = createParams;
-    const now = new Date();
-    const launch = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate());
+    const { name, category = 'Other', description, status, cover } = createParams;
+    const [startDate, launchDate] = DateUtils.parse(createParams.startDate, createParams.launchDate);
 
     const multiparts: Multipart[] = [
       { name: 'Name', data: name },
       { name: 'Category', data: category },
       { name: 'Description', data: description ?? 'Created by Spark JS SDK' },
-      { name: 'StartDate', data: startDate ?? now.toISOString() },
-      { name: 'LaunchDate', data: launchDate ?? launch.toISOString() },
+      { name: 'StartDate', data: startDate.toISOString() },
+      { name: 'LaunchDate', data: launchDate.toISOString() },
       { name: 'Status', data: status ?? 'Design' },
       ...(cover ? [{ name: 'CoverImage', data: Buffer.isBuffer(cover) ? cover.toString() : cover }] : []),
     ];

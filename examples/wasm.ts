@@ -3,9 +3,9 @@ import { type SparkClient } from '../src';
 
 function download(spark: SparkClient) {
   spark.wasm
-    .download({ versionId: '0acc7c89-d33d-4ad7-8262-48a21f5ea673' })
+    .download({ versionId: 'uuid' })
     .then((response) => {
-      const file = createWriteStream('susbervices.zip');
+      const file = createWriteStream('my-service-wasm.zip');
       response.buffer.pipe(file);
     })
     .catch(console.error);

@@ -89,7 +89,7 @@ export class Client {
   }
 
   get impex(): API.ImpEx {
-    return new API.ImpEx(this.config);
+    return API.ImpEx.with(this.config);
   }
 
   get wasm(): API.Wasm {
