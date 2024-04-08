@@ -1,6 +1,7 @@
 import Utils from './utils';
 import Validators from './validators';
 import { ClientOptions } from './client';
+import { Logger, type LoggerOptions } from './logger';
 import { SparkError } from './error';
 import { Authorization } from './auth';
 import { Interceptor } from './http';
@@ -16,6 +17,7 @@ export class Config {
   readonly maxRetries!: number;
   readonly timeout!: number;
   readonly allowBrowser!: boolean;
+  readonly logger!: LoggerOptions;
   readonly extraHeaders: Record<string, string> = {};
 
   constructor({
@@ -31,6 +33,7 @@ export class Config {
     this.timeout = numberValidator.isValid(options.timeout) ? options.timeout! : DEFAULT_TIMEOUT_IN_MS;
     this.maxRetries = numberValidator.isValid(options.maxRetries) ? options.maxRetries! : DEFAULT_MAX_RETRIES;
     this.allowBrowser = this.auth.isOpen || !!options.allowBrowser;
+    this.logger = Logger.of(options.logger);
     this.environment = options.env;
 
     this.#options = JSON.stringify({

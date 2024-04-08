@@ -18,6 +18,7 @@ const token = 'insert-your-access-token';
 const spark = new Spark({ token, env: 'your-env', tenant: 'your-tenant' });
 
 Config.retrieveToken(spark);
+Config.printLogs();
 Wasm.download(spark);
 
 Folder.getCategories(spark);

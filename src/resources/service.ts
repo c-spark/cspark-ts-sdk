@@ -64,7 +64,7 @@ export class Service extends ApiResource {
       const { status, progress } = response.data.response_data;
       if (progress == 100 || status === 'Success') return response;
 
-      console.log(`[INFO]: waiting for compilation job to complete - ${progress || 0}%`);
+      this.logger.log(`waiting for compilation job to complete - ${progress || 0}%`);
       await new Promise((resolve) => setTimeout(resolve, getRetryTimeout(3, 3)));
       retries++;
     }
@@ -92,7 +92,46 @@ export class Service extends ApiResource {
 
   execute(uri: string | Omit<UriParams, 'version'>, params: ExecBodyParams = {}) {
     const url = Uri.from(Uri.toParams(uri), { base: this.config.baseUrl.full, endpoint: 'execute' });
-    const body = parseExecBodyParams(params, { callPurpose: 'Spark JS SDK', compilerType: 'Neuron' });
+
+    const body = ((
+      { data = {}, inputs: initialInputs, raw }: ExecBodyParams,
+      defaultValues: Record<string, string>,
+    ): ExecBody => {
+      const metadata = {
+        service_uri: data?.serviceUri,
+        service_id: data?.serviceId,
+        version: data?.version,
+        version_id: data?.versionId,
+        transaction_date: data?.transactionDate,
+        source_system: data?.sourceSystem,
+        correlation_id: data?.correlationId,
+        call_purpose: data?.callPurpose ?? defaultValues.callPurpose,
+        array_outputs: Array.isArray(data?.arrayOutputs) ? data.arrayOutputs.join(',') : data?.arrayOutputs,
+        compiler_type: data?.compilerType ?? defaultValues.compilterType,
+        debug_solve: data?.debugSolve,
+        excel_file: data?.excelFile,
+        requested_output: Array.isArray(data?.requestedOutput) ? data.requestedOutput.join(',') : data?.requestedOutput,
+        requested_output_regex: data?.requestedOutputRegex,
+        response_data_inputs: data?.responseDataInputs,
+        service_category: data?.serviceCategory,
+        validation_type: data?.validationType,
+      };
+
+      const inputs = data?.inputs || initialInputs;
+      if (!Utils.isObject(inputs) && StringUtils.isNotEmpty(raw)) {
+        const parsed = Serializable.deserialize(raw as string, () => {
+          this.logger.warn('failed to parse the raw input as JSON; exec will use default inputs instead.');
+          return { request_data: { inputs: {} }, request_meta: metadata };
+        });
+
+        parsed.request_meta = Utils.isObject(parsed?.request_meta)
+          ? { ...defaultValues, ...parsed.request_meta }
+          : metadata;
+        return parsed;
+      } else {
+        return { request_data: { inputs: inputs ?? {} }, request_meta: metadata };
+      }
+    })(params, { callPurpose: 'Spark JS SDK', compilerType: 'Neuron' });
 
     return this.request<ServiceExecuted>(url.value, { method: 'POST', body });
   }
@@ -129,7 +168,46 @@ export class Service extends ApiResource {
 
   validate(uri: string | Omit<UriParams, 'version'>, params: ExecBodyParams = {}): Promise<HttpResponse> {
     const url = Uri.from(Uri.toParams(uri), { base: this.config.baseUrl.full, endpoint: 'validation' });
-    const body = parseExecBodyParams(params, {});
+
+    const body = ((
+      { data = {}, inputs: initialInputs, raw }: ExecBodyParams,
+      defaultValues: Record<string, string>,
+    ): ExecBody => {
+      const metadata = {
+        service_uri: data?.serviceUri,
+        service_id: data?.serviceId,
+        version: data?.version,
+        version_id: data?.versionId,
+        transaction_date: data?.transactionDate,
+        source_system: data?.sourceSystem,
+        correlation_id: data?.correlationId,
+        call_purpose: data?.callPurpose ?? defaultValues.callPurpose,
+        array_outputs: Array.isArray(data?.arrayOutputs) ? data.arrayOutputs.join(',') : data?.arrayOutputs,
+        compiler_type: data?.compilerType ?? defaultValues.compilterType,
+        debug_solve: data?.debugSolve,
+        excel_file: data?.excelFile,
+        requested_output: Array.isArray(data?.requestedOutput) ? data.requestedOutput.join(',') : data?.requestedOutput,
+        requested_output_regex: data?.requestedOutputRegex,
+        response_data_inputs: data?.responseDataInputs,
+        service_category: data?.serviceCategory,
+        validation_type: data?.validationType,
+      };
+
+      const inputs = data?.inputs || initialInputs;
+      if (!Utils.isObject(inputs) && StringUtils.isNotEmpty(raw)) {
+        const parsed = Serializable.deserialize(raw as string, () => {
+          this.logger.warn('failed to parse the raw input as JSON', raw);
+          return { request_data: { inputs: {} }, request_meta: metadata };
+        });
+
+        parsed.request_meta = Utils.isObject(parsed?.request_meta)
+          ? { ...defaultValues, ...parsed.request_meta }
+          : metadata;
+        return parsed;
+      } else {
+        return { request_data: { inputs: inputs ?? {} }, request_meta: metadata };
+      }
+    })(params, { callPurpose: 'Spark JS SDK' });
 
     return this.request(url.value, { method: 'POST', body });
   }
@@ -173,7 +251,7 @@ export class Service extends ApiResource {
     });
     const jobId = response.data?.id;
     if (!jobId) throw new SparkError('failed to produce an export job', response);
-    console.log(`[INFO]: export job created <${jobId}>`);
+    this.logger.log(`export job created <${jobId}>`);
 
     const status = await impex.export.getStatus(jobId, { maxRetries: retries });
     if (status.data?.outputs?.files?.length === 0) {
@@ -186,7 +264,7 @@ export class Service extends ApiResource {
       try {
         downloads.push(await this.request<ExportResult>(file.file)); // confirm MD5 hash?
       } catch (cause) {
-        console.warn(`[WARNING]: failed to download file <${file.file}>`, cause);
+        this.logger.warn(`failed to download file <${file.file}>`, cause);
       }
     }
     return downloads;
@@ -200,7 +278,7 @@ export class Service extends ApiResource {
     const response = await impex.import.initiate({ service: Uri.encode({ folder, service }, false), ...params });
     const jobId = response.data?.id;
     if (!jobId) throw new SparkError('failed to produce an import job', response);
-    console.log(`[INFO]: import job created <${jobId}>`);
+    this.logger.log(`import job created <${jobId}>`);
 
     return impex.import.getStatus(jobId, { maxRetries: retries });
   }
@@ -318,46 +396,6 @@ type ExecBody = {
     validation_type?: 'default_values' | 'dynamic';
   };
 };
-
-function parseExecBodyParams(
-  { data = {}, inputs: initialInputs, raw }: ExecBodyParams,
-  defaultValues: Record<string, string>,
-): ExecBody {
-  const metadata = {
-    service_uri: data?.serviceUri,
-    service_id: data?.serviceId,
-    version: data?.version,
-    version_id: data?.versionId,
-    transaction_date: data?.transactionDate,
-    source_system: data?.sourceSystem,
-    correlation_id: data?.correlationId,
-    call_purpose: data?.callPurpose ?? defaultValues.callPurpose,
-    array_outputs: Array.isArray(data?.arrayOutputs) ? data.arrayOutputs.join(',') : data?.arrayOutputs,
-    compiler_type: data?.compilerType ?? defaultValues.compilterType,
-    debug_solve: data?.debugSolve,
-    excel_file: data?.excelFile,
-    requested_output: Array.isArray(data?.requestedOutput) ? data.requestedOutput.join(',') : data?.requestedOutput,
-    requested_output_regex: data?.requestedOutputRegex,
-    response_data_inputs: data?.responseDataInputs,
-    service_category: data?.serviceCategory,
-    validation_type: data?.validationType,
-  };
-
-  const inputs = data?.inputs || initialInputs;
-  if (!Utils.isObject(inputs) && StringUtils.isNotEmpty(raw)) {
-    const parsed = Serializable.deserialize(raw as string, () => {
-      console.warn('[WARNING]: failed to parse the raw input as JSON; exec will use default inputs instead.');
-      return { request_data: { inputs: {} }, request_meta: metadata };
-    });
-
-    parsed.request_meta = Utils.isObject(parsed?.request_meta)
-      ? { ...defaultValues, ...parsed.request_meta }
-      : metadata;
-    return parsed;
-  } else {
-    return { request_data: { inputs: inputs ?? {} }, request_meta: metadata };
-  }
-}
 
 interface UploadBodyParams {
   file: Readable;

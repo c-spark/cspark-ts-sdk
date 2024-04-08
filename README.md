@@ -152,6 +152,22 @@ const spark = new Spark({ oauth: 'path/to/credentials.json' });
   Only set this option to `true` if you understand the risks and have appropriate
   mitigations in place.
 
+- `logger` - default: `LoggerOptions`: enables or disables the logger for the SDK.
+  - if `boolean`, determines whether the SDK should print colorful logs (including timestamps);
+  - if `LogLevel`, the SDK will print logs with the specified log level;
+  - if `LoggerOptions`, the SDK will print logs with the specified options:
+    - `colorful` - default: `true`: determines whether the logs should be colorful;
+    - `timestamp` - default: `true`: determines whether the logs should include timestamps;
+    - `logLevels` - default: `['verbose', 'debug', 'log', 'warn', 'error', 'fatal']`: determines the log levels to print.
+
+```ts
+const spark = new Spark({ logger: true });
+// or
+const spark = new Spark({ logger: 'warn' });
+// or
+const spark = new Spark({ logger: { colorful: false, timestamp: false, logLevels: ['warn', 'error'] } });
+```
+
 ## API Parity
 
 The SDK aims to provide over time a full parity with the Spark API. The following

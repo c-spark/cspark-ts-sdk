@@ -2,12 +2,17 @@ import { Authorization } from '../auth';
 import { Config } from '../config';
 import { JsonData } from '../data';
 import { SparkError } from '../error';
+import { Logger } from '../logger';
 import { userAgentHeader, sdkUaHeader } from '../version';
 import { _fetch, _download, HttpOptions, HttpResponse } from '../http';
 import Utils, { StringUtils } from '../utils';
 
 export abstract class ApiResource {
-  constructor(protected readonly config: Config) {}
+  protected readonly logger!: Logger;
+
+  constructor(protected readonly config: Config) {
+    this.logger = new Logger(config.logger);
+  }
 
   protected get defaultHeaders(): Record<string, string> {
     return {
@@ -23,6 +28,7 @@ export abstract class ApiResource {
     url: string,
     { method = 'GET', headers = {}, ...opts }: Omit<HttpOptions, 'config'> = {},
   ): Promise<HttpResponse<T>> {
+    this.logger.debug(`${method} ${url}`);
     return _fetch<T>(url, {
       ...opts,
       method,

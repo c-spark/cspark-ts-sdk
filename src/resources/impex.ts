@@ -62,7 +62,7 @@ class Export extends ApiResource {
       }
 
       retries++;
-      console.log(`[INFO]: waiting for export job to complete (attempt ${retries} of ${maxRetries})`);
+      this.logger.log(`waiting for export job to complete (attempt ${retries} of ${maxRetries})`);
 
       const timeout = getRetryTimeout(retries, 2);
       await new Promise((resolve) => setTimeout(resolve, timeout));
@@ -102,7 +102,7 @@ class Import extends ApiResource {
       }
 
       retries++;
-      console.log(`[INFO]: waiting for import job to complete (attempt ${retries} of ${maxRetries})`);
+      this.logger.log(`waiting for import job to complete (attempt ${retries} of ${maxRetries})`);
 
       const timeout = getRetryTimeout(retries, 2);
       await new Promise((resolve) => setTimeout(resolve, timeout));

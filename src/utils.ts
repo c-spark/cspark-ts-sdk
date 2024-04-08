@@ -4,6 +4,7 @@ export type Nullable<T> = Maybe<T> | null;
 const LoadedModules: Record<string, any> = {};
 
 async function bootstrapModules(names: string[]) {
+  if (isBrowser()) return;
   if (typeof module === 'object' && typeof module.exports === 'object') {
     names.forEach((name) => (LoadedModules[name] = require(name)));
   } else {
@@ -19,7 +20,6 @@ export function isBrowser() {
 
 export function loadModule<T = any>(path: string): T | undefined {
   if (!LoadedModules[path]) {
-    console.warn(`[WARNING] Module "${path}" is not loaded.`);
     bootstrapModules([path]);
     return undefined;
   }

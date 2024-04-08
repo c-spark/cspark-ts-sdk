@@ -263,8 +263,7 @@ export async function _fetch<T = JsonData>(resource: string, options: HttpOption
       fetchOptions.config.auth?.type === 'oauth' &&
       retries < fetchOptions.config.maxRetries
     ) {
-      console.warn('OAuth2 access token will be refreshed to retry the request');
-      await fetchOptions.config.auth.oauth?.retrieveToken(fetchOptions.config);
+      await fetchOptions.config.auth.oauth?.refreshToken(fetchOptions.config);
       return _fetch(resource, { ...fetchOptions, retries: retries + 1 });
     }
 

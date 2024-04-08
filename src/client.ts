@@ -1,6 +1,7 @@
 import { type Maybe } from './utils';
 import { Config } from './config';
-import { Authorization, OAuthMethod } from './auth';
+import { LogLevel, type LoggerOptions } from './logger';
+import { Authorization, type OAuthMethod } from './auth';
 import * as API from './resources';
 
 /**
@@ -67,6 +68,16 @@ export interface ClientOptions extends OAuthMethod {
    * mitigations in place.
    */
   allowBrowser?: boolean;
+
+  /**
+   * Enables or disables the logger for the client.
+   * if `true`, determines whether client should print colorful logs (including timestamps).
+   * if `string`, client will print logs with the specified log level.
+   * if `LoggerOptions`, client will print logs with the specified options.
+   *
+   * @see LoggerOptions for more details.
+   */
+  logger?: boolean | LogLevel | LoggerOptions;
 }
 
 export class Client {

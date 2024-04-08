@@ -2,6 +2,7 @@ import Utils, { type Maybe, StringUtils } from './utils';
 import { SparkError } from './error';
 import { ENV_VARS } from './constants';
 import { Config } from './config';
+import { Logger } from './logger';
 
 import { OAuth2 as OAuthManager } from './resources/oauth2';
 
@@ -187,12 +188,15 @@ export class OAuth {
   }
 
   async retrieveToken(config: Config): Promise<void> {
+    const logger = new Logger(config.logger);
+    logger.log('refreshing OAuth2 access token...');
+
     try {
       const manager = new OAuthManager(config);
       this.#accessToken = await manager.requestAccessToken();
-      if (!this.accessToken) console.warn('failed to retrieve OAuth2 access token');
+      if (!this.accessToken) logger.warn('failed to retrieve OAuth2 access token');
     } catch (reason) {
-      console.warn('failed to retrieve OAuth2 access token');
+      logger.warn('failed to retrieve OAuth2 access token');
       return Promise.reject(reason);
     }
   }

@@ -26,7 +26,7 @@ export class History extends ApiResource {
     const response = await this.request<DownloadApiResponse>(url.value, { method: 'POST', body });
     const jobId = response.data?.response_data?.job_id;
     if (!jobId) throw new SparkError('failed to produce a download job', response);
-    console.log(`[INFO]: ${type} download job created <${response.data?.response_data?.job_id}>`);
+    this.logger.log(`${type} download job created <${response.data?.response_data?.job_id}>`);
 
     const job = await this.getStatus({ folder, service, jobId, type });
     const downloadUrl = job.data?.response_data?.download_url;
@@ -47,7 +47,7 @@ export class History extends ApiResource {
       if (response.data.response_data.progress == 100) return response;
 
       retries++;
-      console.log(`[INFO]: waiting for status job to complete (attempt ${retries} of ${maxRetries})`);
+      this.logger.log(`waiting for status job to complete (attempt ${retries} of ${maxRetries})`);
 
       const timeout = getRetryTimeout(retries, 2);
       await new Promise((resolve) => setTimeout(resolve, timeout));
