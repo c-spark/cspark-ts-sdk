@@ -93,7 +93,7 @@ export function sanitizeUri(url: string, leading = false): string {
 }
 
 export abstract class StringUtils {
-  static isString(text: unknown): boolean {
+  static isString(text: unknown): text is string {
     return typeof text === 'string' || text instanceof String;
   }
 
@@ -107,7 +107,7 @@ export abstract class StringUtils {
 }
 
 export abstract class NumberUtils {
-  static isNumber(value: unknown): boolean {
+  static isNumber(value: unknown): value is number {
     return !Number.isNaN(value) || typeof value === 'number' || value instanceof Number;
   }
 
@@ -121,7 +121,7 @@ export abstract class NumberUtils {
 }
 
 export abstract class DateUtils {
-  static isDate(value: unknown): boolean {
+  static isDate(value: unknown): value is Date {
     if (value instanceof Date) return true;
     if (typeof value === 'string' || typeof value === 'number') {
       return !Number.isNaN(Date.parse(value.toString()));

@@ -1,8 +1,10 @@
 import { type Readable } from 'stream';
-import { HttpResponse, Multipart, getRetryTimeout } from '../http';
+
+import { Config } from '../config';
 import { Serializable } from '../data';
 import { SparkError } from '../error';
-import { Config } from '../config';
+import { SPARK_SDK } from '../constants';
+import { HttpResponse, Multipart, getRetryTimeout } from '../http';
 import Utils, { StringUtils, DateUtils } from '../utils';
 
 import { ApiResource, ApiResponse, Uri, UriParams } from './base';
@@ -59,16 +61,20 @@ export class Service extends ApiResource {
 
     let retries = 0;
     let response = await this.request<CompilationStatus>(url.value);
-    while (response.data.response_data.progress < 100 && retries < maxRetries) {
-      response = await this.request<CompilationStatus>(url.value);
-      const { status, progress } = response.data.response_data;
-      if (progress == 100 || status === 'Success') return response;
+    do {
+      const { progress } = response.data.response_data;
+      if (progress == 100) return response;
 
       this.logger.log(`waiting for compilation job to complete - ${progress || 0}%`);
-      await new Promise((resolve) => setTimeout(resolve, getRetryTimeout(3, 3)));
+      await new Promise((resolve) => setTimeout(resolve, getRetryTimeout(retries, 3)));
+
       retries++;
-    }
-    throw SparkError.sdk({ message: 'compilation job status timed out' });
+      response = await this.request<CompilationStatus>(url.value);
+    } while (response.data.response_data.progress < 100 && retries < maxRetries);
+
+    if (response.data.response_data.status === 'Success') return response;
+
+    throw SparkError.sdk({ message: 'compilation job status check timed out', cause: response });
   }
 
   publish(params: PublishUriParams) {
@@ -131,7 +137,7 @@ export class Service extends ApiResource {
       } else {
         return { request_data: { inputs: inputs ?? {} }, request_meta: metadata };
       }
-    })(params, { callPurpose: 'Spark JS SDK', compilerType: 'Neuron' });
+    })(params, { callPurpose: SPARK_SDK, compilerType: 'Neuron' });
 
     return this.request<ServiceExecuted>(url.value, { method: 'POST', body });
   }
@@ -207,7 +213,7 @@ export class Service extends ApiResource {
       } else {
         return { request_data: { inputs: inputs ?? {} }, request_meta: metadata };
       }
-    })(params, { callPurpose: 'Spark JS SDK' });
+    })(params, { callPurpose: SPARK_SDK });
 
     return this.request(url.value, { method: 'POST', body });
   }
@@ -227,7 +233,7 @@ export class Service extends ApiResource {
     const [startDate, endDate] = DateUtils.parse(params.startDate, params.endDate);
     const data = {
       versionId,
-      releaseNotes: releaseNotes ?? 'Recompiled via Spark JS SDK',
+      releaseNotes: releaseNotes ?? `Recompiled via ${SPARK_SDK}`,
       upgradeType: params.upgrade ?? 'patch',
       neuronCompilerVersion: params.compiler ?? 'StableLatest',
       tags: Array.isArray(params.tags) ? params.tags.join(',') : params?.tags,

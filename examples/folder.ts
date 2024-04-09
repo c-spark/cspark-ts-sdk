@@ -1,4 +1,4 @@
-import { createWriteStream } from 'fs';
+import { createWriteStream, createReadStream } from 'fs';
 import Spark, { type SparkClient } from '../src';
 
 function getCategories(spark: SparkClient) {
@@ -9,8 +9,9 @@ function getCategories(spark: SparkClient) {
 }
 
 function create(spark: SparkClient) {
+  const cover = createReadStream('my-cover.png');
   spark.folder
-    .create({ name: 'some-folder-name' })
+    .create({ name: 'some-folder-name', cover })
     .then((response) => console.log(response.data))
     .catch(console.error);
 }

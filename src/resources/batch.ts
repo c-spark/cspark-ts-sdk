@@ -1,5 +1,6 @@
 import { HttpResponse } from '../http';
 import { Serializable } from '../data';
+import { SPARK_SDK } from '../constants';
 import Utils, { StringUtils } from '../utils';
 
 import { ApiResource, Uri, UriParams } from './base';
@@ -39,7 +40,7 @@ export class BatchService extends ApiResource {
       } else {
         return { inputs: inputs ?? [], ...metadata };
       }
-    })(params, { serviceUri, callPurpose: 'Spark JS SDK' });
+    })(params, { serviceUri, callPurpose: SPARK_SDK });
 
     return this.request(url.value, { method: 'POST', body });
   }

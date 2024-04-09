@@ -144,7 +144,7 @@ export class OAuth {
           'Provide a JSON object including cliendId and clientSecret ',
           'or a string with the path to a JSON file containing the client ID and secret.',
         ),
-        cause: Utils.isObject(props) ? JSON.stringify(props) : props.toString(),
+        cause: Utils.isObject(props) ? JSON.stringify(props) : (props as string)?.toString(),
       });
     }
   }

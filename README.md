@@ -175,14 +175,14 @@ APIs are currently supported:
 
 **Authentication API**:
 
-| API                                       | Description                                                                   |
+| Verb                                      | Description                                                                   |
 | ----------------------------------------- | ----------------------------------------------------------------------------- |
 | `Spark.config.auth.oauth.retrieveToken()` | Generate access token using OAuth2.0 via Client Credentials flow.             |
 | `Spark.config.auth.oauth.refreshToken()`  | Refresh access token when expired using OAuth2.0 via Client Credentials flow. |
 
 **Folder API**:
 
-| API                             | Description                                                           |
+| Verb                            | Description                                                           |
 | ------------------------------- | --------------------------------------------------------------------- |
 | `Spark.folder.getCategories()`  | Get the list of folder categories.                                    |
 | `Spark.folder.create(data)`     | Create a new folder using info like name, description, category, etc. |
@@ -192,7 +192,7 @@ APIs are currently supported:
 
 **Service API**:
 
-| API                                      | Description                                                               |
+| Verb                                     | Description                                                               |
 | ---------------------------------------- | ------------------------------------------------------------------------- |
 | `Spark.service.getSchema(uri)`           | Get the schema for a given service.                                       |
 | `Spark.service.getVersions(uri)`         | Get all the versions of a service using a service uri locator.            |
@@ -207,22 +207,21 @@ APIs are currently supported:
 
 **Log History API**:
 
-| API                                        | Description                                           |
-| ------------------------------------------ | ----------------------------------------------------- |
-| `Spark.service.log.rehydrate(uri, callId)` | Rehydrate the model run into the original excel file. |
-| `Spark.service.log.download(uri, [type])`  | Initiate a log download job as csv or json file.      |
-| `Spark.service.log.getStatus(uri, [type])` | Get the status for a csv or json download job.        |
+| Verb                                         | Description                                                |
+| -------------------------------------------- | ---------------------------------------------------------- |
+| `Spark.service.log.rehydrate(uri, [callId])` | Rehydrate the executed model into the original excel file. |
+| `Spark.service.log.download(uri, [type])`    | Download service execution logs as csv or json file.       |
 
 **ImpEx API**:
 
-| API                                            | Description                               |
+| Verb                                           | Description                               |
 | ---------------------------------------------- | ----------------------------------------- |
 | `Spark.impex.export.initiate(data)`            | Initiate an Export job of spark services. |
 | `Spark.impex.export.getStatus(jobId, options)` | Check Export job status                   |
 
 **Other APIs**:
 
-| API                                               | Description                                            |
+| Verb                                              | Description                                            |
 | ------------------------------------------------- | ------------------------------------------------------ |
 | `Spark.wasm.download(uri)`                        | Download a service's WebAssembly binary (WASM module). |
 | `Spark.file.download(url)`                        | Download a Spark file (with authentication).           |

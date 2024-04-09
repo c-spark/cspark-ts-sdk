@@ -1,15 +1,27 @@
-import { Buffer } from 'buffer';
+import { type Readable } from 'stream';
+
 import { Serializable } from '../data';
 import { SparkApiError } from '../error';
 import { HttpResponse, Multipart } from '../http';
 import { DateUtils, StringUtils } from '../utils';
+import { SPARK_SDK } from '../constants';
 
 import { ApiResource, Uri, ApiResponse } from './base';
 
 export class Folder extends ApiResource {
   /**
+   * Get the list of folder categories.
+   * @returns {Promise<HttpResponse<FolderCategories>>}
+   */
+  getCategories(): Promise<HttpResponse<FolderCategories>> {
+    const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint: 'lookup/getcategories' });
+    return this.request(url.value);
+  }
+
+  /**
    * Create a new folder.
-   * @param {string | CreateParams} params - Folder name and/or accompanying information
+   * @param {string | CreateParams} params - Folder name (and additional information)
+   * If `params` is a string, it will be used as the folder name.
    * @returns {Promise<HttpResponse<FolderCreated>>}
    */
   async create(params: string | CreateParams): Promise<HttpResponse<FolderCreated>> {
@@ -19,28 +31,29 @@ export class Folder extends ApiResource {
     const [startDate, launchDate] = DateUtils.parse(createParams.startDate, createParams.launchDate);
 
     const multiparts: Multipart[] = [
-      { name: 'Name', data: name },
+      { name: 'Name', data: name.trim() },
       { name: 'Category', data: category },
-      { name: 'Description', data: description ?? 'Created by Spark JS SDK' },
+      { name: 'Description', data: description ?? `Created by ${SPARK_SDK}` },
       { name: 'StartDate', data: startDate.toISOString() },
       { name: 'LaunchDate', data: launchDate.toISOString() },
       { name: 'Status', data: status ?? 'Design' },
-      ...(cover ? [{ name: 'CoverImage', data: Buffer.isBuffer(cover) ? cover.toString() : cover }] : []),
     ];
 
-    return this.request<FolderCreated>(url.value, { method: 'POST', multiparts }).then((response) => {
-      if (response.data.status === 'Success') return response;
+    const response = await this.request<FolderLocation>(url.value, { method: 'POST', multiparts });
+    if (response.data.status === 'Success') {
+      if (cover) await this.uploadCover(response.data.data.folderId, cover);
+      return this.request<FolderCreated>(response.data.data.get_product_url);
+    }
 
-      const cause = {
-        request: { url: url.value, method: 'POST', headers: this.defaultHeaders, body: multiparts },
-        response: { headers: response.headers, body: response.data, raw: Serializable.serialize(response.data) },
-      };
+    const cause = {
+      request: { url: url.value, method: 'POST', headers: this.defaultHeaders, body: multiparts },
+      response: { headers: response.headers, body: response.data, raw: Serializable.serialize(response.data) },
+    };
 
-      if (response.data.errorCode === 'PRODUCT_ALREADY_EXISTS') {
-        throw SparkApiError.when(409, { message: `folder name <${name}> already exists`, cause });
-      }
-      throw SparkApiError.when(response.status, { message: `failed to create folder with name <${name}>`, cause });
-    });
+    if (response.data.errorCode === 'PRODUCT_ALREADY_EXISTS') {
+      throw SparkApiError.when(409, { message: `folder name <${name}> already exists`, cause });
+    }
+    throw SparkApiError.when(response.status, { message: `failed to create folder with name <${name}>`, cause });
   }
 
   /**
@@ -72,24 +85,19 @@ export class Folder extends ApiResource {
   }
 
   /**
-   * Get the list of folder categories.
-   * @returns {Promise<HttpResponse<FolderCategories>>}
-   */
-  getCategories(): Promise<HttpResponse<FolderCategories>> {
-    const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint: 'lookup/getcategories' });
-    return this.request(url.value);
-  }
-
-  /**
    * Update a folder's information.
    * @param {string} id - Folder ID
    * @param {CreateParams} params - Folder information to update
    * @returns {Promise<HttpResponse<FolderUpdated>>}
    */
-  update(id: string, params: Omit<CreateParams, 'name' | 'cover' | 'status'>): Promise<HttpResponse<FolderUpdated>> {
-    const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint: `product/update/${id}` });
-    const body = { ...params, shouldTrackUserAction: true };
+  async update(id: string, params: Omit<CreateParams, 'name' | 'status'>): Promise<HttpResponse<FolderUpdated>> {
+    id = id?.trim();
+    const endpoint = `product/update/${id}`;
+    const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
+    const { cover, ...rest } = params;
+    if (cover) await this.uploadCover(id, cover);
 
+    const body = { ...rest, shouldTrackUserAction: true };
     return this.request(url.value, { method: 'POST', body });
   }
 
@@ -99,8 +107,26 @@ export class Folder extends ApiResource {
    * @returns {Promise<HttpResponse<FolderDeleted>>}
    */
   delete(id: string): Promise<HttpResponse<FolderDeleted>> {
-    const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint: `product/delete/${id}` });
+    const endpoint = `product/delete/${id?.trim()}`;
+    const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
     return this.request(url.value, { method: 'DELETE' });
+  }
+
+  /**
+   * Upload cover image to a folder by ID.
+   * @param {string} id - Folder ID
+   * @param {Readable} cover - base64 encoded cover image
+   * @returns {Promise<HttpResponse<CoverUploaded>>}
+   */
+  uploadCover(id: string, cover: Readable): Promise<HttpResponse<CoverUploaded>> {
+    const endpoint = `product/UploadCoverImage`;
+    const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
+    const multiparts: Multipart[] = [
+      { name: 'id', data: id.trim() },
+      { name: 'coverImage', fileStream: cover },
+    ];
+
+    return this.request(url.value, { method: 'POST', multiparts });
   }
 }
 
@@ -130,7 +156,7 @@ interface CreateParams {
   launchDate?: string;
   startDate?: string;
   status?: string;
-  cover?: string | Buffer;
+  cover?: Readable;
 }
 
 interface SearchParams {
@@ -145,12 +171,6 @@ interface Paging {
   page?: number;
   size?: number;
   sort?: string;
-}
-
-interface FolderApiResponse<T> extends Pick<ApiResponse, 'status'> {
-  data: T;
-  errorCode: string | null;
-  message: string | null;
 }
 
 interface FolderInfo {
@@ -171,12 +191,36 @@ interface FolderInfo {
   totalServiceCount: number;
 }
 
+interface FolderApiResponse<T> extends Pick<ApiResponse, 'status'> {
+  data: T;
+  errorCode: string | null;
+  message: string | null;
+}
+
 type FolderCategories = FolderApiResponse<Array<{ key: FolderCategory; value: FolderCategory; icon: string }>>;
 
-type FolderCreated = FolderApiResponse<{ folderId: string; get_product_url: string }>;
+type FolderLocation = FolderApiResponse<{ folderId: string; get_product_url: string }>;
 
 type FolderListed = FolderApiResponse<FolderInfo[]> & { count: number; next: number; previous: number };
 
 type FolderUpdated = FolderApiResponse<null>;
 
 type FolderDeleted = FolderApiResponse<null>;
+
+type CoverUploaded = FolderApiResponse<null>;
+
+type FolderCreated = FolderApiResponse<
+  FolderInfo & {
+    totalServiceCount?: number;
+    sections: any[];
+    calculationEngines: {
+      count: number;
+      next: string;
+      previous: any;
+      message: string;
+      data: any[];
+      errorCode: any;
+      status: string;
+    };
+  }
+>;

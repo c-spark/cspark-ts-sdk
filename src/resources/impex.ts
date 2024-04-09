@@ -3,6 +3,7 @@ import { type Readable } from 'stream';
 import Utils, { StringUtils } from '../utils';
 import { Config } from '../config';
 import { SparkError } from '../error';
+import { SPARK_SDK } from '../constants';
 import { HttpResponse, Multipart, getRetryTimeout } from '../http';
 import { ApiResource, Uri } from './base';
 
@@ -77,7 +78,7 @@ class Import extends ApiResource {
     const metadata = {
       inputs: { services_modify: buildServiceUris(params.service) },
       services_existing: params.ifPresent ?? 'update',
-      source_system: params.sourceSystem ?? 'Spark JS SDK',
+      source_system: params.sourceSystem ?? SPARK_SDK,
       correlation_id: params.correlationId,
     };
     const multiparts: Multipart[] = [

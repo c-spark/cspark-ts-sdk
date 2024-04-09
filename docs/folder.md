@@ -1,24 +1,12 @@
 # Folder API
 
-| API                             | Description                                                           |
-| ------------------------------- | --------------------------------------------------------------------- |
-| `Spark.folder.getCategories()`  | Get the list of folder categories.                                    |
-| `Spark.folder.create(data)`     | Create a new folder using info like name, description, category, etc. |
-| `Spark.folder.find(name)`       | Find folders by name, status, category, or favorite.                  |
-| `Spark.folder.update(id, data)` | Update a folder's information by id.                                  |
-| `Spark.folder.delete(id)`       | Delete a folder by id.                                                |
-
-All the methods return a `Promise` that resolves to an `HttpResponse<T>` object
-where `T` is the type of the data returned by the API.
-
-```json
-{
-  "status": 200,
-  "data": {}, // JSON data T returned by the API
-  "buffer": null, // Binary array buffer of response body
-  "headers": {} // Response headers
-}
-```
+| Verb                            | Description                                                 |
+| ------------------------------- | ----------------------------------------------------------- |
+| `Spark.folder.getCategories()`  | Get the list of folder categories.                          |
+| `Spark.folder.create(data)`     | Create a new folder using info like name, description, etc. |
+| `Spark.folder.find(name)`       | Find folders by name, status, category, or favorite.        |
+| `Spark.folder.update(id, data)` | Update a folder's information by id.                        |
+| `Spark.folder.delete(id)`       | Delete a folder by id.                                      |
 
 ## Get the folder categories
 
@@ -43,7 +31,7 @@ However, there's a chance that the platform will add more categories in the futu
 To get the list of folder categories, you can use the following method:
 
 ```ts
-const response = await spark.folder.getCategories();
+await spark.folder.getCategories();
 ```
 
 ### Returns
@@ -80,8 +68,7 @@ This method returns an array of folder categories with their icons.
 
 This method allows you to create a new folder by providing a folder name.
 
-[!TIP]
-
+> [!IMPORTANT]
 > Remember to choose a folder name that is URL-friendly as it will form part of
 > a Spark Service URI. We recommend using lowercase letters and hyphens to separate
 > words. Otherwise, special characters like space will be URL-encoded.
@@ -97,15 +84,15 @@ await spark.folder.create('my-folder');
 Alternatively, you can pass in the following parameters as an `object`, which
 will create a folder with some additional information.
 
-| Property          | Type               | Description                                           |
-| ----------------- | ------------------ | ----------------------------------------------------- |
-| _name_ (required) | `string`           | The name of the folder (120 characters max)           |
-| _description_     | `string`           | The description of the folder.                        |
-| _category_        | `FolderCategory`   | The category of the folder.                           |
-| _launchDate_      | `string`           | The launch date in `YYYY-MM-DDTHH:MM:SS.SSSZ` format. |
-| _startDate_       | `string`           | The start date in `YYYY-MM-DDTHH:MM:SS.SSSZ` format.  |
-| _status_          | `string`           | The status of the folder.                             |
-| _cover_           | `string \| Buffer` | The cover image of the folder (base64 `string`)       |
+| Property          | Type             | Description                                           |
+| ----------------- | ---------------- | ----------------------------------------------------- |
+| _name_ (required) | `string`         | The name of the folder (120 characters max)           |
+| _description_     | `string`         | The description of the folder.                        |
+| _category_        | `FolderCategory` | The category of the folder.                           |
+| _launchDate_      | `string`         | The launch date in `YYYY-MM-DDTHH:MM:SS.SSSZ` format. |
+| _startDate_       | `string`         | The start date in `YYYY-MM-DDTHH:MM:SS.SSSZ` format.  |
+| _status_          | `string`         | The status of the folder.                             |
+| _cover_           | `Readable`       | The cover image of the folder (binary file)           |
 
 ```ts
 await spark.folder.create({
@@ -126,12 +113,34 @@ When successful, the method returns the folder information.
 ```json
 {
   "status": "Success",
-  "data": {
-    "folderId": "uuid",
-    "get_product_url": "https://excel.{env}.coherent.global/api/v1/product/GetProduct/my-folder"
-  },
   "message": null,
-  "errorCode": null
+  "errorCode": null,
+  "data": {
+    "id": "uuid",
+    "name": "my-folder",
+    "category": "Other",
+    "description": "Created by Spark JS SDK",
+    "coverImagePath": null,
+    "createdAt": "1970-12-03T04:56:78.186Z",
+    "isStarred": true,
+    "status": "Design",
+    "startDate": "1970-12-03T04:56:78.186Z",
+    "launchDate": "1980-12-03T04:56:78.186Z",
+    "calculationEngines": {
+      "count": 0,
+      "next": "False",
+      "previous": null,
+      "message": null,
+      "data": [],
+      "errorCode": null,
+      "status": "Success"
+    },
+    "sections": [],
+    "lastModifiedDate": "1970-12-03T04:56:78.186Z",
+    "kanbanStatus": "Test 01",
+    "createdBy": "john.doe@coherent.global",
+    "activeServiceCount": 0
+  }
 }
 ```
 
@@ -155,7 +164,7 @@ This method helps find folders by name, status, category, or favorite.
 
 ### Arguments
 
-You may search search a folder by its id.
+You may search a folder by its id.
 
 ```ts
 await spark.folder.find('uuid');
@@ -176,15 +185,18 @@ await spark.folder.find({ category: 'Medical', favorite: true });
 
 Additional search parameters are available:
 
-| Property | Type     | Description                       |
-| -------- | -------- | --------------------------------- |
-| _page_   | `number` | The page number.                  |
-| _size_   | `number` | The number of items per page.     |
-| _sort_   | `string` | The field to sort the folders by. |
+| Property | Type     | Description                           |
+| -------- | -------- | ------------------------------------- |
+| _page_   | `number` | The page number.                      |
+| _size_   | `number` | The number of items per page (min. 3) |
+| _sort_   | `string` | The field to sort the folders by.     |
 
 ```ts
 await spark.folder.find({ favorite: true }, { page: 1, size: 10, sort: 'productName' });
 ```
+
+The above example will return the first 10 favorite folders sorted alphabetically
+by the product name.
 
 <!-- markdownlint-disable-next-line -->
 
@@ -218,7 +230,6 @@ This method returns an array of folders with their information.
       "activeServiceCount": 0,
       "totalServiceCount": 26
     },
-    // ...
     {
       "id": "uuid",
       "name": "my-other-folder",
@@ -247,7 +258,7 @@ for more information.
 
 This method allows you to update a folder's information by its id. Once created,
 you can only update the folder's description, category, launch date, start date,
-or status.
+cover, or status.
 
 <!-- markdownlint-disable-next-line -->
 
@@ -264,7 +275,7 @@ await spark.folder.update('uuid', { description: 'Updated description' });
 
 ### Returns
 
-When successful, the method returns a successful status.
+The method returns a successful status when the folder is updated.
 
 ```json
 {
@@ -297,7 +308,7 @@ await spark.folder.delete('uuid');
 
 ### Returns
 
-When successful, the method returns a successful status.
+The method returns a successful status when the folder is deleted.
 
 ```json
 {
