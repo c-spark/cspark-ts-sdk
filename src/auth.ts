@@ -53,9 +53,9 @@ export interface OAuthMethod {
  * NOTE: The order of precedence is API key > Bearer token > OAuth.
  */
 export class Authorization {
-  readonly apiKey?: Maybe<string>;
-  readonly token?: Maybe<string>;
-  readonly oauth?: Maybe<OAuth>;
+  readonly apiKey!: Maybe<string>;
+  readonly token!: Maybe<string>;
+  readonly oauth!: Maybe<OAuth>;
 
   private constructor({ apiKey, token, oauth }: OAuthMethod) {
     const clientId = Utils.readEnv(ENV_VARS.CLIENT_ID);
@@ -80,13 +80,20 @@ export class Authorization {
    * @see https://docs.coherent.global/spark-apis/public-apis for more information.
    */
   get isOpen(): boolean {
-    return this.apiKey === 'open' || this.token === 'open' || this.oauth?.clientId === 'open';
+    return this.apiKey === 'open' || this.token === 'open';
   }
 
+  /**
+   * Whether any authorization method is defined.
+   */
   get isEmpty(): boolean {
     return !this.apiKey && !this.token && !this.oauth;
   }
 
+  /**
+   * The type of authorization method provided.
+   * @returns {'apiKey' | 'token' | 'oauth'}
+   */
   get type(): keyof OAuthMethod | undefined {
     return this.apiKey ? 'apiKey' : this.token ? 'token' : this.oauth ? 'oauth' : undefined;
   }
@@ -187,6 +194,13 @@ export class OAuth {
     return { clientId: this.clientId, clientSecret: this.clientSecret };
   }
 
+  /**
+   * Retrieves an OAuth2 access token using the client ID and secret.
+   * @param {Config} config Spark configuration.
+   *
+   * When the access token is expired, the client will automatically refresh it
+   * before making the next request using this method.
+   */
   async retrieveToken(config: Config): Promise<void> {
     const logger = new Logger(config.logger);
     logger.log('refreshing OAuth2 access token...');
@@ -201,6 +215,13 @@ export class OAuth {
     }
   }
 
+  /**
+   * Refreshes the OAuth2 access token using the client ID and secret.
+   * @param {Config} config Spark configuration.
+   *
+   * Currently, a wrapper around `retrieveToken` method.
+   * @see OAuth#retrieveToken
+   */
   refreshToken(config: Config): Promise<void> {
     return this.retrieveToken(config);
   }

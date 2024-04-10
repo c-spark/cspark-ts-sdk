@@ -11,8 +11,10 @@ which shall help you save time and streamline your development process.
 
 - [Authentication](./authentication.md)
 - [Folder API](./folder.md)
+- [Service API](./service.md)
 - [Log History API](./history.md)
 - [ImpEx API](./impex.md)
+- [Other APIs](./misc.md)
 
 ## HTTP Response
 
@@ -63,6 +65,8 @@ as well as the obtained response if available.
 
 ```json
 {
+  "name": "UnauthorizedError",
+  "status": 401,
   "cause": {
     "request": {
       "url": "https://excel.my-env.coherent.global/api/v1/product/delete/uuid",
@@ -87,8 +91,6 @@ as well as the obtained response if available.
       "body": null,
       "raw": ""
     }
-  },
-  "name": "UnauthorizedError",
-  "status": 401
+  }
 }
 ```

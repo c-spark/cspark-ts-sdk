@@ -1,3 +1,5 @@
+<!-- markdownlint-disable-file MD024 -->
+
 # Log History API
 
 | Verb                                         | Description                                                |
@@ -106,10 +108,9 @@ file.
 
 If you want to have more granular control over the download process, you can use
 respectively the `Spark.service.log.downloads.initiate(uri, [type])` and
-`Spark.service.log.downloads.getStatus(uri, [type])` methods to initiate the download
-job and check the status of the job.
-
-<!-- markdownlint-disable-next-line -->
+`Spark.service.log.downloads.getStatus(uri, [type])` methods to initiate a download
+job and check its status until it's completed. Do note that the status check is
+subject to a timeout when it reaches the maximum number of retries.
 
 ### Arguments
 
@@ -143,12 +144,10 @@ await spark.service.log.download({
   type: 'csv',
   callIds: ['call-id-1', 'call-id-2'],
   startDate: '1970-01-01',
-  endDate: '1970-01-31',
+  endDate: Date.now(),
   maxRetries: 3,
 });
 ```
-
-<!-- markdownlint-disable-next-line -->
 
 ### Returns
 
@@ -237,3 +236,6 @@ And its CSV counterpart should look like this:
 Description,Log Time,Transaction date,Version,Version ID,User name,Source system,Correlation ID,Call purpose,Call ID,Calc time (ms),Total time (ms),my_input,my_output,Error Details,Warning Details
 ,1970-12-03T04:56:78+00:00,1970-12-03T04:56:78+00:00,1.2.3,uuid,john.doe@coherent.global,SPARK,,Spark JS SDK,uuid,10,561,13,42,,
 ```
+
+Check out the [API reference](https://docs.coherent.global/spark-apis/api-call-history-apis/download-log-as-csv)
+for more information.

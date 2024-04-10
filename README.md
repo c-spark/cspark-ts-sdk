@@ -13,8 +13,7 @@ npm install @cspark/sdk
 yarn add @cspark/sdk
 ```
 
-> [!NOTE]
-> This package requires Node.js 16 or higher.
+> 🫣 This package requires [Node.js 16](https://nodejs.org/en/download/current) or higher.
 
 ## Usage
 
@@ -89,7 +88,7 @@ flexible and can be configured with the following options:
 
 ### Base URL
 
-`baseUrl` - default: `process.env['CSPARK_BASE_URL']`: indicates the base URL of
+`baseUrl` (default: `process.env['CSPARK_BASE_URL']`): indicates the base URL of
 the Coherent Spark API. It should include the tenant and environment information.
 
 ```ts
@@ -107,7 +106,7 @@ const spark = new Spark({ env: 'uat.us', tenant: 'my-tenant' });
 
 The SDK supports three types of authentication mechanisms:
 
-- `apiKey` - default: `process.env['CSPARK_API_KEY']`: indicates the API key
+- `apiKey` (default: `process.env['CSPARK_API_KEY']`): indicates the API key
   (also known as synthetic key). Keep in mind that the API key
   is sensitive and should be kept secure.
 
@@ -119,7 +118,7 @@ const spark = new Spark({ apiKey: 'my-api-key' });
 > The Spark SaaS platform supports public APIs that can be accessed without any
 > authentication. In that case, you can set `apiKey` to `open`.
 
-- `token` - default: `process.env['CSPARK_BEARER_TOKEN']`: indicates the bearer token.
+- `token` (default: `process.env['CSPARK_BEARER_TOKEN']`): indicates the bearer token.
   It can be prefixed with 'Bearer' or not. A bearer token is usually valid for a
   limited time and should be refreshed periodically.
 
@@ -127,8 +126,8 @@ const spark = new Spark({ apiKey: 'my-api-key' });
 const spark = new Spark({ token: 'Bearer 123' });
 ```
 
-- `oauth` - default: `process.env['CSPARK_CLIENT_ID']` and `process.env['CSPARK_CLIENT_SECRET']` or
-  `process.env['CSPARK_OAUTH_PATH']`: indicates the OAuth2 client credentials.
+- `oauth` (default: `process.env['CSPARK_CLIENT_ID']` and `process.env['CSPARK_CLIENT_SECRET']` or
+  `process.env['CSPARK_OAUTH_PATH']`): indicates the OAuth2 client credentials.
   For convenience, you can provide the client ID and secret directly or provide
   the file path to the JSON file containing the credentials.
 
@@ -138,27 +137,28 @@ const spark = new Spark({ oauth: { clientId: 'my-client-id', clientSecret: 'my-c
 const spark = new Spark({ oauth: 'path/to/credentials.json' });
 ```
 
-- `timeout` - default: `60000`: indicates the maximum amount of time (in milliseconds)
+- `timeout` (default: `60000`): indicates the maximum amount of time (in milliseconds)
   that the client should wait for a response from Spark servers before timing out a request.
 
-- `maxRetries` - default: `2`: indicates the maximum number of times that the client
+- `maxRetries` (default: `2`): indicates the maximum number of times that the client
   will retry a request in case of a temporary failure, such as a unauthorized
   response or a status code greater than 400.
 
-- `allowBrowser` - default: `false`: indicates whether the SDK should be used in
+- `allowBrowser` (default: `false`): indicates whether the SDK should be used in
   browser-like environments -- unless you intend to access public APIs.
   By default, client-side use of this library is not recommended, as it risks
   exposing your secret API credentials to attackers.
   Only set this option to `true` if you understand the risks and have appropriate
   mitigations in place.
 
-- `logger` - default: `LoggerOptions`: enables or disables the logger for the SDK.
-  - if `boolean`, determines whether the SDK should print colorful logs (including timestamps);
-  - if `LogLevel`, the SDK will print logs with the specified log level;
-  - if `LoggerOptions`, the SDK will print logs with the specified options:
-    - `colorful` - default: `true`: determines whether the logs should be colorful;
-    - `timestamp` - default: `true`: determines whether the logs should include timestamps;
-    - `logLevels` - default: `['verbose', 'debug', 'log', 'warn', 'error', 'fatal']`: determines the log levels to print.
+- `logger` (default: `LoggerOptions`): enables or disables the logger for the SDK.
+  - If `boolean`, determines whether the SDK should print colorful logs (including timestamps).
+  - If `LogLevel`, the SDK will print logs with the specified log level.
+  - If `LoggerOptions`, the SDK will print logs with the specified options:
+    - `colorful` (default: `true`): determines whether the logs should be colorful;
+    - `timestamp` (default: `true`): determines whether the logs should include timestamps;
+    - `logLevels` (default: `['verbose', 'debug', 'log', 'warn', 'error', 'fatal']`):
+      determines the log levels to print.
 
 ```ts
 const spark = new Spark({ logger: true });
@@ -173,14 +173,14 @@ const spark = new Spark({ logger: { colorful: false, timestamp: false, logLevels
 The SDK aims to provide over time a full parity with the Spark API. The following
 APIs are currently supported:
 
-**Authentication API**:
+[Authentication API](./docs/authentication.md) - for generating access tokens using:
 
 | Verb                                      | Description                                                                   |
 | ----------------------------------------- | ----------------------------------------------------------------------------- |
 | `Spark.config.auth.oauth.retrieveToken()` | Generate access token using OAuth2.0 via Client Credentials flow.             |
 | `Spark.config.auth.oauth.refreshToken()`  | Refresh access token when expired using OAuth2.0 via Client Credentials flow. |
 
-**Folder API**:
+[Folder API](./docs/folder.md) - for managing folders:
 
 | Verb                            | Description                                                           |
 | ------------------------------- | --------------------------------------------------------------------- |
@@ -190,7 +190,7 @@ APIs are currently supported:
 | `Spark.folder.update(id, data)` | Update a folder's information by id.                                  |
 | `Spark.folder.delete(id)`       | Delete a folder by id.                                                |
 
-**Service API**:
+[Service API](./docs/service.md) - for managing Spark services:
 
 | Verb                                     | Description                                                               |
 | ---------------------------------------- | ------------------------------------------------------------------------- |
@@ -200,32 +200,31 @@ APIs are currently supported:
 | `Spark.service.getSwagger(uri)`          | Get the JSON content or download swagger file a particular service.       |
 | `Spark.service.recompile(uri)`           | Recompile a service into a specified compiler type (e.g, Neuron_v1.13.0). |
 | `Spark.service.download(uri)`            | Download the original excel file or the configured version of a service.  |
-| `Spark.service.execute(uri, data)`       | Execute a service using v3 format.                                        |
-| `Spark.service.batch.execute(uri, data)` | Execute a service using synchronous batch (i.e., v4 format.)              |
+| `Spark.service.execute(uri, data)`       | Execute a service using v3 data format.                                   |
+| `Spark.service.batch.execute(uri, data)` | Execute a service using synchronous batch (i.e., v4 data format.)         |
 | `Spark.service.validate(uri, data)`      | Validate service data using static or dynamic validations.                |
 | `Spark.service.export(uri, data)`        | Extract Spark services and package them up into a zip file.               |
 
-**Log History API**:
+[Log History API](./docs/history.md) - for managing service execution logs:
 
 | Verb                                         | Description                                                |
 | -------------------------------------------- | ---------------------------------------------------------- |
 | `Spark.service.log.rehydrate(uri, [callId])` | Rehydrate the executed model into the original excel file. |
 | `Spark.service.log.download(uri, [type])`    | Download service execution logs as csv or json file.       |
 
-**ImpEx API**:
+[ImpEx API](./docs/impex.md) - for importing and exporting Spark services:
 
 | Verb                                           | Description                               |
 | ---------------------------------------------- | ----------------------------------------- |
 | `Spark.impex.export.initiate(data)`            | Initiate an Export job of spark services. |
 | `Spark.impex.export.getStatus(jobId, options)` | Check Export job status                   |
 
-**Other APIs**:
+[Other APIs](./docs/misc.md) - for other functionalities:
 
-| Verb                                              | Description                                            |
-| ------------------------------------------------- | ------------------------------------------------------ |
-| `Spark.wasm.download(uri)`                        | Download a service's WebAssembly binary (WASM module). |
-| `Spark.file.download(url)`                        | Download a Spark file (with authentication).           |
-| `static Spark.download(url, [Spark.config.auth])` | Download a file (with or without authentication).      |
+| Verb                       | Description                              |
+| -------------------------- | ---------------------------------------- |
+| `Spark.wasm.download(uri)` | Download a service's WebAssembly module. |
+| `Spark.file.download(url)` | Download a Spark file.                   |
 
 > [!TIP]
 > A service URI locator can be combined with other parameters to locate a specific
@@ -233,7 +232,7 @@ APIs are currently supported:
 > using an object containing the `folder`, `service`, and `public` properties.
 
 ```ts
-const spark = new Spark({ env: 'uat.us', tenant: 'my-tenant' });
+const spark = new Spark({ env: 'uat.us', tenant: 'my-tenant', apiKey: 'open' });
 spark.service
   .execute({ folder: 'my-folder', service: 'my-service', public: true }, { inputs: { value: 'Hello, Spark SDK!' } })
   .then((response) => console.log(response.data))
@@ -257,13 +256,14 @@ See the [Uri](./src/resources/base.ts) class for more details.
 
 Some of the derived `SparkApiError` are:
 
-| type                      | status      | when                           |
+| Type                      | Status      | When                           |
 | ------------------------- | ----------- | ------------------------------ |
 | `InternetError`           | 0           | no internet access             |
 | `BadRequestError`         | 400         | invalid request                |
 | `UnauthorizedError`       | 401         | missing or invalid credentials |
 | `ForbiddenError`          | 403         | insufficient permissions       |
 | `NotFoundError`           | 404         | resource not found             |
+| `ConflictError`           | 409         | resource already exists        |
 | `RateLimitError`          | 429         | too many requests              |
 | `InternalServerError`     | 500         | server-side error              |
 | `ServiceUnavailableError` | 503         | server is down                 |

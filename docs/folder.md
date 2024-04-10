@@ -1,3 +1,5 @@
+<!-- markdownlint-disable-file MD024 -->
+
 # Folder API
 
 | Verb                            | Description                                                 |
@@ -84,15 +86,15 @@ await spark.folder.create('my-folder');
 Alternatively, you can pass in the following parameters as an `object`, which
 will create a folder with some additional information.
 
-| Property          | Type             | Description                                           |
-| ----------------- | ---------------- | ----------------------------------------------------- |
-| _name_ (required) | `string`         | The name of the folder (120 characters max)           |
-| _description_     | `string`         | The description of the folder.                        |
-| _category_        | `FolderCategory` | The category of the folder.                           |
-| _launchDate_      | `string`         | The launch date in `YYYY-MM-DDTHH:MM:SS.SSSZ` format. |
-| _startDate_       | `string`         | The start date in `YYYY-MM-DDTHH:MM:SS.SSSZ` format.  |
-| _status_          | `string`         | The status of the folder.                             |
-| _cover_           | `Readable`       | The cover image of the folder (binary file)           |
+| Property          | Type                       | Description                                             |
+| ----------------- | -------------------------- | ------------------------------------------------------- |
+| _name_ (required) | `string`                   | The name of the folder (120 characters max)             |
+| _description_     | `string`                   | The description of the folder.                          |
+| _category_        | `FolderCategory`           | The category of the folder.                             |
+| _startDate_       | `string \| number \| Date` | The start date (format: `YYYY-MM-DD[THH:MM:SS.SSSZ]`).  |
+| _launchState_     | `string \| number \| Date` | The launch date (format: `YYYY-MM-DD[THH:MM:SS.SSSZ]`). |
+| _status_          | `string`                   | The status of the folder.                               |
+| _cover_           | `Readable`                 | The cover image of the folder (binary file)             |
 
 ```ts
 await spark.folder.create({
@@ -103,8 +105,6 @@ await spark.folder.create({
   launchDate: new Date().toISOString(),
 });
 ```
-
-<!-- markdownlint-disable-next-line -->
 
 ### Returns
 
@@ -160,8 +160,6 @@ Otherwise, it will throw a `SparkApiError`:
 
 This method helps find folders by name, status, category, or favorite.
 
-<!-- markdownlint-disable-next-line -->
-
 ### Arguments
 
 You may search a folder by its id.
@@ -197,8 +195,6 @@ await spark.folder.find({ favorite: true }, { page: 1, size: 10, sort: 'productN
 
 The above example will return the first 10 favorite folders sorted alphabetically
 by the product name.
-
-<!-- markdownlint-disable-next-line -->
 
 ### Returns
 
@@ -260,8 +256,6 @@ This method allows you to update a folder's information by its id. Once created,
 you can only update the folder's description, category, launch date, start date,
 cover, or status.
 
-<!-- markdownlint-disable-next-line -->
-
 ### Arguments
 
 You must provide the folder id and the updated folder information, just as in
@@ -270,8 +264,6 @@ You must provide the folder id and the updated folder information, just as in
 ```ts
 await spark.folder.update('uuid', { description: 'Updated description' });
 ```
-
-<!-- markdownlint-disable-next-line -->
 
 ### Returns
 
@@ -294,8 +286,6 @@ This method allows you to delete a folder by its id.
 > This method should be used with caution as it will delete the folder and all its
 > content, i.e., its services if any.
 
-<!-- markdownlint-disable-next-line -->
-
 ### Arguments
 
 You must provide the folder id as `string`.
@@ -303,8 +293,6 @@ You must provide the folder id as `string`.
 ```ts
 await spark.folder.delete('uuid');
 ```
-
-<!-- markdownlint-disable-next-line -->
 
 ### Returns
 

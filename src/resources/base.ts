@@ -7,6 +7,17 @@ import { userAgentHeader, sdkUaHeader } from '../version';
 import { _fetch, _download, HttpOptions, HttpResponse } from '../http';
 import Utils, { StringUtils } from '../utils';
 
+/**
+ * Base class for all API resources.
+ *
+ * This class provides a common interface for all API resources to interact with
+ * the Spark API. It is designed to be extended by other classes that represent
+ * specific API resources, such as folders, services, logs, imports, exports, etc.
+ *
+ * @param {Config} config - the configuration options for the API resource.
+ *
+ * @see Config for more details.
+ */
 export abstract class ApiResource {
   protected readonly logger!: Logger;
 

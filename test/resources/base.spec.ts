@@ -1,5 +1,4 @@
-import { SparkError } from '@cspark/sdk';
-import { Uri } from '@cspark/sdk/resources';
+import { SparkError, Uri } from '@cspark/sdk';
 
 describe('Uri', () => {
   const BASE_URL = 'https://excel.test.coherent.global/tenant-name';

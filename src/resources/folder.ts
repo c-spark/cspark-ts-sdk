@@ -94,10 +94,15 @@ export class Folder extends ApiResource {
     id = id?.trim();
     const endpoint = `product/update/${id}`;
     const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
-    const { cover, ...rest } = params;
+    const { cover, startDate, launchDate, ...rest } = params;
     if (cover) await this.uploadCover(id, cover);
 
-    const body = { ...rest, shouldTrackUserAction: true };
+    const body = {
+      ...rest,
+      startDate: DateUtils.isDate(startDate) ? new Date(startDate).toISOString() : undefined,
+      launchDate: DateUtils.isDate(launchDate) ? new Date(launchDate).toISOString() : undefined,
+      shouldTrackUserAction: true,
+    };
     return this.request(url.value, { method: 'POST', body });
   }
 
@@ -153,8 +158,8 @@ interface CreateParams {
   name: string;
   description?: string;
   category?: FolderCategory;
-  launchDate?: string;
-  startDate?: string;
+  launchDate?: number | string | Date;
+  startDate?: number | string | Date;
   status?: string;
   cover?: Readable;
 }

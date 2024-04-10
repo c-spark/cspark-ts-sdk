@@ -5,7 +5,7 @@ import { Config } from '../config';
 import { SparkError } from '../error';
 import { SPARK_SDK } from '../constants';
 import { HttpResponse, Multipart, getRetryTimeout } from '../http';
-import { ApiResource, Uri } from './base';
+import { ApiResource, Uri, UriParams } from './base';
 
 export class ImpEx {
   constructor(protected readonly configs: { readonly export: Config; readonly import: Config }) {}
@@ -109,6 +109,24 @@ class Import extends ApiResource {
       await new Promise((resolve) => setTimeout(resolve, timeout));
     }
     throw SparkError.sdk({ message: 'import job status timed out' });
+  }
+}
+
+export class Wasm extends ApiResource {
+  /**
+   * Download a service's WebAssembly module.
+   * @param {string | UriParams} uri - how to locate the service
+   * @returns {Promise<HttpResponse>} - a buffer of the WASM module as a zip file
+   *
+   * NOTE: `serviceUri` made out of versionId downloads a wasm successfully.
+   */
+  download(uri: string | Omit<UriParams, 'proxy' | 'version'>): Promise<HttpResponse> {
+    const { folder, service, public: isPublic, serviceId, versionId } = Uri.toParams(uri);
+    const serviceUri = Uri.encode({ folder, service, serviceId, versionId });
+    const endpoint = `getnodegenzipbyId/${serviceUri}`;
+    const url = Uri.partial(`nodegen${isPublic ? '/public' : ''}`, { base: this.config.baseUrl.full, endpoint });
+
+    return this.request(url.value);
   }
 }
 
