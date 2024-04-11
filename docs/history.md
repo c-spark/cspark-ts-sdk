@@ -8,11 +8,11 @@
 | `Spark.service.log.download(uri, [type])`    | Download service execution logs as csv or json file.       |
 
 > [!WARNING]
-> As best practices, the API call history log is a good source of truth for auditing
-> and debugging purposes and should be used accordingly. However, the log history is not
+> The service execution history is a good source of truth for auditing and
+> debugging purposes and should be used accordingly. However, the log history is not
 > intended to be a data storage solution, where after each model execution, the log
-> is downloaded and stored in a local database. Please do use the following methods
-> responsibly.
+> is downloaded and stored in a local database. So, do use the following methods
+> **responsibly**.
 
 ## Rehydrate the executed model
 
@@ -173,7 +173,7 @@ When successful, this method returns:
 }
 ```
 
-The downloaded zip file should contains the logs in the requested format. For example,
+The downloaded zip file should contain the logs in the requested format. For example,
 if you requested a JSON file, the logs should be similar to this:
 
 ```json

@@ -84,11 +84,11 @@ The downloaded zip file should have the following files:
 - `my-serviceDefaultValidations.json`: the default or static validation schema
 - `checksums.md5`: the checksums of the files in the zip (.data, .wasm, .js)
 - `my-service_Jsonformspec.json` (optional): the service execution's JSON form specification
-  (useful for generating UI forms such as input, select, etc.)
+  (useful for generating UI elements such as input, select, etc.)
 
 ## Download a Spark file
 
-Some Spark APIs may generate temporary files during execution. This method helps you
+Some Spark APIs may generate temporary files upon execution. This method helps you
 download these files, which, oftentimes, require a valid token for access.
 
 ### Arguments

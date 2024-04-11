@@ -16,15 +16,10 @@ enum Colors {
   salmon = '#FFA07A',
   coral = '#F08080',
   blue = '#87CEFA',
-  steelBlue = '#B0C4DE',
-  slateGray = '#778899',
   green = '#90EE90',
   seaGreen = '#20B2AA',
   limeGreen = '#32CD32',
-  purple = '#9370DB',
-  lavender = '#E6E6FA',
   linen = '#FAF0E6',
-  magenta = '#FF00FF',
 }
 
 export type LogLevel = 'none' | 'log' | 'debug' | 'verbose' | 'warn' | 'error' | 'fatal';
@@ -42,7 +37,7 @@ export interface LoggerService {
 
   fatal?(message: any, ...params: any[]): any;
 
-  setLogLevels?(levels: LogLevel[]): any;
+  setOptions?(options: LoggerOptions): void;
 }
 
 /**
@@ -56,18 +51,9 @@ export class Log {
   static readonly warn = new Log('warn');
   static readonly error = new Log('error');
   static readonly fatal = new Log('fatal');
+  static weights: Record<LogLevel, number> = { verbose: 0, debug: 1, log: 2, warn: 3, error: 4, fatal: 5, none: 6 };
 
   protected constructor(readonly level: LogLevel) {}
-
-  static weights: Record<LogLevel, number> = {
-    verbose: 0,
-    debug: 1,
-    log: 2,
-    warn: 3,
-    error: 4,
-    fatal: 5,
-    none: 6,
-  };
 
   /**
    * Returns the log levels that are enabled for this category.
@@ -92,19 +78,16 @@ export class Log {
 }
 
 export interface LoggerOptions {
-  /**
-   * Enabled log levels.
-   */
+  /** The log context (defaults to `CSPARK vM.m.p`). */
+  context?: string;
+
+  /** Enabled log levels. */
   logLevels?: LogLevel[];
 
-  /**
-   * If enabled, will print timestamp (time difference) between current and previous log message.
-   */
+  /** If enabled, the logger will include timestamp as part of the log message. */
   timestamp?: boolean;
 
-  /**
-   * If enabled, will print colorful logs.
-   */
+  /** If enabled, the logger will print colorful logs. */
   colorful?: boolean;
 }
 
@@ -115,53 +98,50 @@ export interface LoggerOptions {
  * @see https://github.com/nestjs/nest/blob/master/packages/common/services/console-logger.service.ts
  */
 class NodeLogger implements LoggerService {
-  static readonly logLevels: LogLevel[] = ['log', 'error', 'warn', 'debug', 'verbose', 'fatal'];
+  static readonly logLevels: LogLevel[] = ['verbose', 'debug', 'log', 'warn', 'error', 'fatal'];
   protected readonly options!: LoggerOptions;
 
   constructor();
   constructor(options: LoggerOptions);
-  constructor({ logLevels = BrowserLogger.logLevels, timestamp = true, colorful = true }: LoggerOptions = {}) {
-    this.options = { logLevels, timestamp, colorful };
+  constructor({ logLevels = NodeLogger.logLevels, ...options }: LoggerOptions = {}) {
+    this.options = { logLevels, ...options };
   }
 
   log(message: any, ...params: any[]) {
     if (!Log.log.isEnabled(this.options?.logLevels)) return;
-
     this.printMessages([message, ...params], 'log');
   }
 
   error(message: any, ...params: any[]) {
     if (!Log.error.isEnabled(this.options?.logLevels)) return;
-
     this.printMessages([message, ...params], 'error', 'stderr');
   }
 
   warn(message: any, ...params: any[]) {
     if (!Log.warn.isEnabled(this.options?.logLevels)) return;
-
     this.printMessages([message, ...params], 'warn');
   }
 
   debug(message: any, ...params: any[]) {
     if (!Log.debug.isEnabled(this.options?.logLevels)) return;
-
     this.printMessages([message, ...params], 'debug');
   }
 
   verbose(message: any, ...params: any[]) {
     if (!Log.verbose.isEnabled(this.options?.logLevels)) return;
-
     this.printMessages([message, ...params], 'verbose');
   }
 
   fatal(message: any, ...params: any[]) {
     if (!Log.fatal.isEnabled(this.options?.logLevels)) return;
-
     this.printMessages([message, ...params], 'fatal', 'stderr');
   }
 
-  setLogLevels(levels: LogLevel[]) {
-    this.options.logLevels = levels;
+  setOptions({ context, colorful, timestamp, logLevels }: LoggerOptions = {}) {
+    this.options.context = context ?? this.options.context;
+    this.options.colorful = colorful ?? this.options.colorful;
+    this.options.timestamp = timestamp ?? this.options.timestamp;
+    this.options.logLevels = logLevels ?? this.options.logLevels;
   }
 
   protected printMessages(messages: unknown[], logLevel: LogLevel = 'log', writeStreamType?: 'stdout' | 'stderr') {
@@ -172,7 +152,7 @@ class NodeLogger implements LoggerService {
   }
 
   protected formatMessage(message: unknown, logLevel: LogLevel) {
-    const heading = sdkLogger;
+    const heading = `[${this.options.context}]`;
     const formattedLevel = logLevel.toUpperCase().padStart(7, ' ');
     const timestamp = this.options.timestamp ? dateTimeFormatter.format(Date.now()) : '';
 
@@ -180,7 +160,7 @@ class NodeLogger implements LoggerService {
 
     const coloredHeading = `\x1B[38;5;3m${heading}\x1B[39m`;
     const coloredTimestamp = `\x1B[34m${timestamp}\x1B[39m`;
-    const coloredLevelAndMsg = this.getColorByLogLevel(logLevel)(`${formattedLevel} ${message}`);
+    const coloredLevelAndMsg = this.getColorByLogLevel(logLevel, `${formattedLevel} ${message}`);
     return `${coloredHeading} ${coloredTimestamp} ${coloredLevelAndMsg}\n`;
   }
 
@@ -188,20 +168,20 @@ class NodeLogger implements LoggerService {
    * Color the log message using ANSI escape codes.
    * Special thanks to https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
    */
-  private getColorByLogLevel(level: LogLevel) {
+  private getColorByLogLevel(level: LogLevel, text: string) {
     switch (level) {
       case 'debug':
-        return (text: string) => `\x1B[95m${text}\x1B[39m`; // magenta
+        return `\x1B[95m${text}\x1B[39m`; // magenta
       case 'warn':
-        return (text: string) => `\x1B[33m${text}\x1B[39m`; // yellow
+        return `\x1B[33m${text}\x1B[39m`; // yellow
       case 'error':
-        return (text: string) => `\x1B[31m${text}\x1B[39m`; // red
+        return `\x1B[31m${text}\x1B[39m`; // red
       case 'verbose':
-        return (text: string) => `\x1B[96m${text}\x1B[39m`; // cyan
+        return `\x1B[96m${text}\x1B[39m`; // cyan
       case 'fatal':
-        return (text: string) => `\x1B[1m${text}\x1B[0m`; // bold
+        return `\x1B[1m${text}\x1B[0m`; // bold
       default:
-        return (text: string) => `\x1B[32m${text}\x1B[39m`; // green
+        return `\x1B[32m${text}\x1B[39m`; // green
     }
   }
 }
@@ -210,49 +190,50 @@ class NodeLogger implements LoggerService {
  * A browser console logger.
  */
 class BrowserLogger implements LoggerService {
-  static readonly logLevels: LogLevel[] = ['log', 'error', 'warn', 'debug', 'verbose'];
+  static readonly logLevels: LogLevel[] = ['verbose', 'debug', 'log', 'warn', 'error'];
   protected readonly options!: LoggerOptions;
 
   constructor();
   constructor(options: LoggerOptions);
-  constructor({ logLevels = BrowserLogger.logLevels, timestamp = true, colorful = true }: LoggerOptions = {}) {
-    this.options = { logLevels, timestamp, colorful };
+  constructor({ logLevels = BrowserLogger.logLevels, ...options }: LoggerOptions = {}) {
+    this.options = { logLevels, ...options };
   }
 
   log(message: any, ...params: any[]) {
     if (!Log.log.isEnabled(this.options?.logLevels)) return;
-
     this.printMessages(message, 'log', 'log', ...params);
   }
 
   warn(message: any, ...params: any[]) {
     if (!Log.warn.isEnabled(this.options.logLevels)) return;
-
     this.printMessages(message, 'warn', 'warn', ...params);
   }
 
   debug(message: any, ...params: any[]) {
     if (!Log.debug.isEnabled(this.options.logLevels)) return;
-
     this.printMessages(message, 'debug', 'info', ...params);
   }
 
   verbose(message: any, ...params: any[]) {
     if (!Log.verbose.isEnabled(this.options.logLevels)) return;
-
     this.printMessages(message, 'verbose', 'info', ...params);
   }
 
   error(message: any, ...params: any[]) {
     if (!Log.error.isEnabled(this.options.logLevels)) return;
-
     this.printMessages(message, 'error', 'error', ...params);
   }
 
   fatal(message: any, ...params: any[]) {
     if (!Log.fatal.isEnabled(this.options.logLevels)) return;
-
     this.printMessages(message, 'error', 'error', ...params);
+  }
+
+  setOptions({ context, colorful, timestamp, logLevels }: LoggerOptions = {}) {
+    this.options.context = context ?? this.options.context;
+    this.options.colorful = colorful ?? this.options.colorful;
+    this.options.timestamp = timestamp ?? this.options.timestamp;
+    this.options.logLevels = logLevels ?? this.options.logLevels;
   }
 
   protected printMessages(
@@ -266,7 +247,7 @@ class BrowserLogger implements LoggerService {
   }
 
   protected formatMessage(message: string, logLevel: LogLevel) {
-    const heading = sdkLogger;
+    const heading = `[${this.options.context}]`;
     const formattedLevel = logLevel.toUpperCase();
     const timestamp = this.options.timestamp ? dateTimeFormatter.format(Date.now()) : '';
 
@@ -301,18 +282,27 @@ class BrowserLogger implements LoggerService {
   }
 }
 
-export const DEFAULT_LOGGER = isBrowser() ? new BrowserLogger() : new NodeLogger();
+export const DEFAULT_LOGGER_OPTIONS = {
+  context: sdkLogger,
+  colorful: true,
+  timestamp: true,
+  logLevels: isBrowser() ? BrowserLogger.logLevels : NodeLogger.logLevels,
+};
+const DEFAULT_LOGGER = new (isBrowser() ? BrowserLogger : NodeLogger)(DEFAULT_LOGGER_OPTIONS);
 
 export class Logger implements LoggerService {
   protected static staticInstanceRef: LoggerService = DEFAULT_LOGGER;
-
   protected localInstanceRef?: LoggerService;
   protected readonly options!: LoggerOptions;
 
   constructor();
+  constructor(context: string);
   constructor(options: LoggerOptions);
-  constructor({ logLevels = BrowserLogger.logLevels, timestamp = true, colorful = true }: LoggerOptions = {}) {
-    this.options = { logLevels, timestamp, colorful };
+  constructor(options: string | LoggerOptions = {}) {
+    this.options =
+      typeof options === 'string' && options.length > 0
+        ? { ...DEFAULT_LOGGER_OPTIONS, context: options }
+        : { ...DEFAULT_LOGGER_OPTIONS, ...(options as LoggerOptions) };
   }
 
   get localInstance(): LoggerService {
@@ -351,16 +341,15 @@ export class Logger implements LoggerService {
     this.localInstance?.fatal?.(message, ...optionalParams);
   }
 
-  setLogLevels(levels: LogLevel[]) {
-    this.options.logLevels = levels;
+  setOptions({ context, colorful, timestamp, logLevels }: LoggerOptions) {
+    this.options.context = context ?? this.options.context;
+    this.options.colorful = colorful ?? this.options.colorful;
+    this.options.timestamp = timestamp ?? this.options.timestamp;
+    this.options.logLevels = logLevels ?? this.options.logLevels;
   }
 
   static of(options?: boolean | string | LoggerOptions): LoggerOptions {
-    const defaultOptions: LoggerOptions = {
-      colorful: true,
-      timestamp: true,
-      logLevels: isBrowser() ? BrowserLogger.logLevels : NodeLogger.logLevels,
-    };
+    const defaultOptions: LoggerOptions = DEFAULT_LOGGER_OPTIONS;
 
     if (typeof options === 'boolean') return { logLevels: options ? defaultOptions.logLevels : ['none'] };
     if (typeof options === 'string') return { ...defaultOptions, logLevels: [options.toLowerCase() as LogLevel] };
@@ -392,12 +381,17 @@ export class Logger implements LoggerService {
     this.staticInstanceRef?.fatal?.(message, ...optionalParams);
   }
 
+  static setOptions(options: LoggerOptions) {
+    this.staticInstanceRef?.setOptions?.(options);
+  }
+
   private registerLocalInstanceRef() {
     if (this.localInstanceRef) return this.localInstanceRef;
 
     const logger = isBrowser() ? BrowserLogger : NodeLogger;
     this.localInstanceRef = new logger(this.options);
-
     return this.localInstanceRef;
   }
 }
+
+export default Logger;

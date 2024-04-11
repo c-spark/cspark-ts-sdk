@@ -102,7 +102,7 @@ and secret:
 const spark = new Spark({ oauth: 'path/to/your/credentials.json' });
 ```
 
-## Using Environment Variables instead (recommended)
+## Using Environment Variables (recommended)
 
 As you already know, the SDK will attempt to read the API key, bearer token, and
 OAuth credentials from the environment variables. This is the recommended way to
@@ -114,9 +114,9 @@ export CSPARK_API_KEY='my-api-key'
 export CSPARK_BEARER_TOKEN='Bearer your access token'
 # or
 export CSPARK_CLIENT_ID='my-client-id'
-export CSPARK_CLIENT_SECRET='my-client'
+export CSPARK_CLIENT_SECRET='my-client-secret'
 # or
-export CSPARK_OAUTH_PATH='path/to/your/credentials.json'
+export CSPARK_OAUTH_PATH='path/to/my/client-credentials.json'
 ```
 
 Creating a `SparkClient` instance now becomes as simple as:

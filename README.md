@@ -44,7 +44,7 @@ Here's an example of how to execute a Spark service:
 import Spark from '@cspark/sdk';
 
 function main() {
-  const spark = new Spark({ env: 'uat.us', tenant: 'my-tenant', apiKey: 'my-api-key' });
+  const spark = new Spark({ env: 'my-env', tenant: 'my-tenant', apiKey: 'my-api-key' });
   spark.service
     .execute('my-folder/my-service', { inputs: { value: 'Hello, Spark SDK!' } })
     .then((response) => console.log(response.data))
@@ -66,7 +66,7 @@ environments:
       const { SparkClient: Spark } = window['@cspark/sdk'];
 
       function main(apiKey) {
-        const spark = new Spark({ env: 'uat.us', tenant: 'my-tenant', apiKey, allowBrowser: true });
+        const spark = new Spark({ env: 'my-env', tenant: 'my-tenant', apiKey, allowBrowser: true });
         spark.service
           .execute('my-folder/my-service', { inputs: { value: 'Hello, Spark SDK!' } })
           .then((response) => console.log(response.data))
@@ -92,14 +92,14 @@ flexible and can be configured with the following options:
 the Coherent Spark API. It should include the tenant and environment information.
 
 ```ts
-const spark = new Spark({ baseUrl: 'https://excel.uat.us.coherent.global/my-tenant' });
+const spark = new Spark({ baseUrl: 'https://excel.my-env.coherent.global/my-tenant' });
 ```
 
 Alternatively, a combination of `env` and `tenant` options can be used to construct
 the base URL.
 
 ```ts
-const spark = new Spark({ env: 'uat.us', tenant: 'my-tenant' });
+const spark = new Spark({ env: 'my-env', tenant: 'my-tenant' });
 ```
 
 ### Authentication
@@ -155,6 +155,7 @@ const spark = new Spark({ oauth: 'path/to/credentials.json' });
   - If `boolean`, determines whether the SDK should print colorful logs (including timestamps).
   - If `LogLevel`, the SDK will print logs with the specified log level.
   - If `LoggerOptions`, the SDK will print logs with the specified options:
+    - `context` (default: `CSPARK v{version}`): defines the context of the logs (e.g., `CSPARK v1.2.3`);
     - `colorful` (default: `true`): determines whether the logs should be colorful;
     - `timestamp` (default: `true`): determines whether the logs should include timestamps;
     - `logLevels` (default: `['verbose', 'debug', 'log', 'warn', 'error', 'fatal']`):
@@ -165,12 +166,12 @@ const spark = new Spark({ logger: true });
 // or
 const spark = new Spark({ logger: 'warn' });
 // or
-const spark = new Spark({ logger: { colorful: false, timestamp: false, logLevels: ['warn', 'error'] } });
+const spark = new Spark({ logger: { colorful: false, logLevels: ['warn', 'error'] } });
 ```
 
 ## API Parity
 
-The SDK aims to provide over time a full parity with the Spark API. The following
+The SDK aims to provide over time full parity with the Spark API. The following
 APIs are currently supported:
 
 [Authentication API](./docs/authentication.md) - for generating access tokens using:
@@ -232,7 +233,7 @@ APIs are currently supported:
 > using an object containing the `folder`, `service`, and `public` properties.
 
 ```ts
-const spark = new Spark({ env: 'uat.us', tenant: 'my-tenant', apiKey: 'open' });
+const spark = new Spark({ env: 'my-env', tenant: 'my-tenant', apiKey: 'open' });
 spark.service
   .execute({ folder: 'my-folder', service: 'my-service', public: true }, { inputs: { value: 'Hello, Spark SDK!' } })
   .then((response) => console.log(response.data))

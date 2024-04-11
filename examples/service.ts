@@ -1,5 +1,5 @@
 import { createWriteStream, createReadStream } from 'fs';
-import { type SparkClient } from '../src';
+import { type SparkClient } from '@cspark/sdk';
 
 function getMetadata(spark: SparkClient) {
   spark.service

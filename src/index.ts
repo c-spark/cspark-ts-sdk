@@ -5,5 +5,5 @@ export { Uri, type UriParams, ApiResource } from './resources';
 export { Logger, type LoggerOptions, type LogLevel } from './logger';
 export { SparkApiError, SparkSdkError, SparkError } from './error';
 export { type ClientOptions as SparkOptions, Client as SparkClient } from './client';
-import { Client } from './client';
-export default Client;
+import { Client as SparkClient } from './client';
+export default SparkClient;

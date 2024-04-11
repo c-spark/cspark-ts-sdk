@@ -1,5 +1,5 @@
 import { createWriteStream } from 'fs';
-import { type SparkClient } from '../src';
+import { type SparkClient } from '@cspark/sdk';
 
 function rehydrate(spark: SparkClient) {
   spark.service.log

@@ -1,4 +1,4 @@
-import { type SparkClient, Logger } from '../src';
+import { type SparkClient, Logger } from '@cspark/sdk';
 
 function retrieveToken(spark: SparkClient) {
   spark.config.auth.oauth
@@ -8,6 +8,7 @@ function retrieveToken(spark: SparkClient) {
 }
 
 function printLogs() {
+  Logger.setOptions({ context: 'Demo' });
   Logger.verbose('verbose message');
   Logger.log('info message');
   Logger.debug('debug message');
@@ -15,7 +16,7 @@ function printLogs() {
   Logger.warn('warn message');
   Logger.fatal('fatal message');
 
-  const logger = new Logger({ colorful: false });
+  const logger = new Logger({ context: 'Demo', colorful: false });
   logger.verbose('verbose message');
   logger.log('info message');
   logger.debug('debug message');

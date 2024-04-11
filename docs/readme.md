@@ -16,6 +16,20 @@ which shall help you save time and streamline your development process.
 - [ImpEx API](./impex.md)
 - [Other APIs](./misc.md)
 
+## HTTP Request
+
+The SDK is shipped with a built-in logger that will log all HTTP requests
+to the console by default. If you want to disable this feature, you can set
+the `logger` property to `false` or to higher log levels (e.g., `warn`) in the
+SDK configuration.
+
+```ts
+const spark = new Spark({ logger: false });
+```
+
+The log level for the HTTP requests is `debug`. Keep in mind that setting the
+`logger` property to `false` will disable all logs, including errors and warnings.
+
 ## HTTP Response
 
 All the methods return a `Promise` that resolves to an `HttpResponse<T>` object
@@ -94,3 +108,47 @@ as well as the obtained response if available.
   }
 }
 ```
+
+## API Resource
+
+The Spark platform offers a wide range of functionalities that can be accessed
+programmatically via RESTful APIs. There are over 60 endpoints available, and the SDK currently
+supports about 1/3 of them.
+
+Even though the SDK does not cover all the APIs available in the platform, it provides
+a good starting point for developers to interact with it. So, if there's an API resource
+that you need to consume and is not available in the SDK, you can always extend
+this `ApiResource` class to include it. Here's an example of how you can do it:
+
+```ts
+import Spark, { ApiResource, Uri } from '@cspark/sdk';
+
+// 1. Prepare the additional API resource you want to consume
+class MyResource extends ApiResource {
+  fetchData() {
+    const baseUrl = this.config.baseUrl.full;
+    const url = Uri.from({}, { base: baseUrl, version: 'api/v4', endpoint: 'my/resource' });
+
+    return this.request(url.value, { method: 'GET' });
+  }
+}
+
+// 2. Build a Spark client.
+const spark = new Spark({ env: 'my-env', tenant: 'my-tenant', token: 'bearer token' });
+
+// 3. Your custom resource relies on the Spark configuration to build the request.
+const myResource = new MyResource(spark.config);
+
+// 4. Use the custom resource to fetch data.
+myResource.fetchData().then((response) => {
+  // 5. do something with the response.
+  console.log(response.data);
+});
+```
+
+Do notice the `this.config` property and the `this.request(...)` method in the
+`MyResource` class. These are inherited from the `ApiResource` class and are
+available for you to use in your custom resource.
+
+The `Uri` class is also available to help you build the URL for your custom resource.
+In this particular example, the built URL will be: `https://excel.my-env.coherent.global/my-tenant/api/v4/my/resource`.
