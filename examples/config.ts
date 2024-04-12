@@ -16,7 +16,7 @@ function printLogs() {
   Logger.warn('warn message');
   Logger.fatal('fatal message');
 
-  const logger = new Logger({ context: 'Demo', colorful: false });
+  const logger = Logger.of({ context: 'Demo', colorful: false });
   logger.verbose('verbose message');
   logger.log('info message');
   logger.debug('debug message');

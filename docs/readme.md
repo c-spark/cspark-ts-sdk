@@ -30,6 +30,22 @@ const spark = new Spark({ logger: false });
 The log level for the HTTP requests is `debug`. Keep in mind that setting the
 `logger` property to `false` will disable all logs, including errors and warnings.
 
+You may provide a custom logger to the SDK by setting the `logger` property of the
+`LoggerOptions` to an instance of a class that implements the `LoggerService`
+interface. Your logger will take precedence over the built-in logger.
+
+```ts
+import Spark from '@cspark/sdk';
+
+const logger = {
+  debug: (message: string) => console.log(message),
+  warn: (message: string) => console.warn(message),
+  error: (message: string) => console.error(message),
+};
+
+const spark = new Spark({ logger: { logger } });
+```
+
 ## HTTP Response
 
 All the methods return a `Promise` that resolves to an `HttpResponse<T>` object
@@ -112,8 +128,8 @@ as well as the obtained response if available.
 ## API Resource
 
 The Spark platform offers a wide range of functionalities that can be accessed
-programmatically via RESTful APIs. There are over 60 endpoints available, and the SDK currently
-supports about 1/3 of them.
+programmatically via RESTful APIs. There are over 60 endpoints available, and the
+SDK currently supports about 1/3 of them.
 
 Even though the SDK does not cover all the APIs available in the platform, it provides
 a good starting point for developers to interact with it. So, if there's an API resource
@@ -123,11 +139,14 @@ this `ApiResource` class to include it. Here's an example of how you can do it:
 ```ts
 import Spark, { ApiResource, Uri } from '@cspark/sdk';
 
-// 1. Prepare the additional API resource you want to consume
+// 1. Prepare the additional API resource you want to consume (e.g., MyResource).
 class MyResource extends ApiResource {
   fetchData() {
-    const baseUrl = this.config.baseUrl.full;
-    const url = Uri.from({}, { base: baseUrl, version: 'api/v4', endpoint: 'my/resource' });
+    const url = Uri.from(undefined, {
+      base: this.config.baseUrl.full,
+      version: 'api/v4',
+      endpoint: 'my/resource',
+    });
 
     return this.request(url.value, { method: 'GET' });
   }
@@ -148,7 +167,99 @@ myResource.fetchData().then((response) => {
 
 Do notice the `this.config` property and the `this.request(...)` method in the
 `MyResource` class. These are inherited from the `ApiResource` class and are
-available for you to use in your custom resource.
+available for you to use in your custom resource. The `config` property contains
+some other goodies like the `baseUrl`, which can be used to build other URLs for
+supported by the Spark platform.
 
 The `Uri` class is also available to help you build the URL for your custom resource.
 In this particular example, the built URL will be: `https://excel.my-env.coherent.global/my-tenant/api/v4/my/resource`.
+
+## Other Considerations
+
+### EcmaScript Modules (ESM) vs CommonJS (CJS)
+
+The SDK is written in TypeScript and compiled to both EcmaScript Modules (ESM) and
+CommonJS (CJS) formats. You can import the SDK in your project using either of these
+formats:
+
+**Using ESM:**
+
+```ts
+import Spark from '@cspark/sdk';
+```
+
+**Or using CJS:**
+
+```ts
+const { SparkClient: Spark } = require('@cspark/sdk');
+```
+
+To maintain consistency across the examples used in the SDK documentation and to
+avoid confusion, we will use the ESM format in all the code snippets.
+
+### Transactional vs Non-Transactional Requests
+
+Most of the SDK methods are non-transactional, meaning that a request is expected
+to perform one task only by hitting only one Spark endpoint. A stateless roundtrip.
+However, some methods are transactional, meaning that they will perform multiple
+tasks in a single request. For example:
+
+- `Spark.folder.create(data)`: will create a folder and upload a cover image (if any)
+  in separate requests.
+- `Spark.service.create(data)`: will upload an excel file, check its status until
+  completion, and publish it as a Spark service.
+- `Spark.impex.export(data)`: will initiate an export job, check its status until
+  completion, and download a zip containing all the necessary files associated
+  with a Spark service.
+
+> **PRO TIP**: You may notice multiple requests being made in the logs (if enabled)
+> when using these methods. It should also be noted that these transactional methods
+> may take a bit longer to complete than the non-transactional ones.
+
+These transactional methods are quite useful as they will handle the entire process
+for you, from start to finish. However, you are welcome to use the non-transactional
+methods if you need more control over the process.
+
+### Error Handling
+
+The SDK will only throw `SparkError` errors when something goes wrong. Whether you
+choose to use `async-await` or `promise-chaining`, you should always handle
+these errors to avoid disrupting the flow of your application.
+
+```ts
+import Spark, { SparkError } from '@cspark/sdk';
+
+async function main(folderName) {
+  try {
+    // omit previous code for brevity
+    const spark = new Spark(); // settings are loaded from the environment variables
+    const response = await spark.folder.create(folderName);
+    console.log(response.data); // do something with the response
+  } catch (error) {
+    if (error instanceof SparkError) {
+      console.warn(error.details); // this is thrown by the SDK
+
+      if (error.status === 409 || error.name === 'ConflictError') {
+        console.log('folder already exists; trying again with a different name');
+        await main(`${folderName}-1`);
+      }
+    } else {
+      console.error(error); // this is thrown by something else
+    }
+  }
+}
+
+main('my-folder');
+```
+
+## Support and Feedback
+
+The SDK is a powerful tool that will help you interact with the Spark platform
+in a more efficient and streamlined way. It provides a simple interface to access
+the platform's APIs, which will help you save time and effort during development.
+
+If you have any questions or need help with the SDK, feel free to reach out to
+the Coherent team. We are always happy to help you with your projects and provide
+you with the support you need.
+
+Happy coding! 🚀

@@ -2,39 +2,106 @@ import { type Readable } from 'stream';
 
 import Utils, { StringUtils } from '../utils';
 import { Config } from '../config';
-import { SparkError } from '../error';
+import { Logger } from '../logger';
+import { SparkError, SparkApiError } from '../error';
+import { Serializable } from '../data';
 import { SPARK_SDK } from '../constants';
 import { HttpResponse, Multipart, getRetryTimeout } from '../http';
 import { ApiResource, Uri, UriParams } from './base';
 
 export class ImpEx {
-  constructor(protected readonly configs: { readonly export: Config; readonly import: Config }) {}
+  constructor(protected readonly configs: { readonly exports: Config; readonly imports: Config }) {}
 
   static with(config: Config): ImpEx {
-    return new ImpEx({ export: config, import: config });
+    return new ImpEx({ exports: config, imports: config });
   }
 
   static migration(from: Config, to: Config): ImpEx {
-    return new ImpEx({ export: from, import: to });
+    return new ImpEx({ exports: from, imports: to });
   }
 
-  get export() {
-    return new Export(this.configs.export);
+  get exports() {
+    return new Export(this.configs.exports);
   }
 
-  get import() {
-    return new Import(this.configs.import);
+  get imports() {
+    return new Import(this.configs.imports);
+  }
+
+  /**
+   * Export Spark entities such as versions, services, or folders.
+   * @param {ExportParams} params - what to export
+   * @returns {Promise<HttpResponse[]>} - a list of exported files
+   * @throws {SparkError} when the export job fails
+   *
+   * @transactional
+   * This method will initiate an export job, poll its status until it completes,
+   * and download the exported files. If you need more control over these steps,
+   * consider using the `exports` resource directly.
+   */
+  async export(params: ExportParams): Promise<HttpResponse[]> {
+    const { maxRetries = this.configs.exports.maxRetries, retryInterval } = params ?? {};
+    const response = await this.exports.initiate(params);
+
+    const status = await this.exports.getStatus(response.data.id, { maxRetries, retryInterval });
+    if (status.data?.outputs?.files?.length === 0) {
+      const error = new SparkError('export job failed to produce any files', status);
+      this.exports.logger.error(error.message);
+      throw error;
+    }
+
+    return this.exports.download(status.data);
+  }
+
+  /**
+   * Import Spark entities into the platform.
+   * @param {ImportParams} params - what to import
+   * @returns {Promise<HttpResponse<ImportResult>>} - the import job results
+   * @throws {SparkError} when the import job fails
+   *
+   * @transactional
+   * This method will initiate an import job, poll its status until it completes,
+   * and return the import results. If you need more control over these steps,
+   * consider using the `imports` resource directly.
+   */
+  async import(params: ImportParams): Promise<HttpResponse<ImportResult>> {
+    const { maxRetries = this.configs.imports.maxRetries, retryInterval } = params ?? {};
+    const response = await this.imports.initiate(params);
+
+    const status = await this.imports.getStatus(response.data.id, { maxRetries, retryInterval });
+    if (status.data?.errors) {
+      const error = new SparkError('import job failed with errors', status);
+      this.imports.logger.error(error.message);
+      throw error;
+    } else if (status.data?.outputs?.services?.length === 0) {
+      this.imports.logger.warn('import job completed without any services');
+    } else {
+      this.imports.logger.log(`imported ${status.data.outputs.services.length} services`);
+    }
+
+    return status;
   }
 }
 
 class Export extends ApiResource {
-  initiate(bodyParams: Readonly<ExportBodyParams> = {}): Promise<HttpResponse<ExportInit>> {
-    const url = Uri.from({}, { base: this.config.baseUrl.full, version: 'api/v4', endpoint: 'export' });
-    const { filters, ...params } = bodyParams;
+  declare readonly logger: Logger;
+
+  constructor(config: Config) {
+    super(config);
+    this.logger = Logger.of(config.logger);
+  }
+
+  /**
+   * Initiate an export job to export Spark entities such as versions, services, or folders.
+   * @param {ExportParams} params - what to export
+   * @returns {Promise<HttpResponse<ExportInit>>} - the export job details
+   */
+  async initiate(params: ExportParams = {}): Promise<HttpResponse<ExportInit>> {
+    const url = Uri.from(undefined, { base: this.config.baseUrl.full, version: 'api/v4', endpoint: 'export' });
     const metadata = {
-      file_filter: filters?.file ?? 'migrate',
-      version_filter: filters?.version ?? 'all',
-      source_system: params?.sourceSystem,
+      file_filter: params?.filters?.file ?? 'migrate',
+      version_filter: params?.filters?.version ?? 'all',
+      source_system: params?.sourceSystem ?? SPARK_SDK,
       correlation_id: params?.correlationId,
     };
 
@@ -43,38 +110,103 @@ class Export extends ApiResource {
     if (Utils.isNotEmptyArray(params?.services)) inputs.services = params!.services;
     if (Utils.isNotEmptyArray(params?.versionIds)) inputs.version_ids = params!.versionIds;
     if (Utils.isEmptyObject(inputs)) {
-      throw new SparkError('at least one of folders, services, or versionIds must be provided');
+      const error = new SparkError('at least one of folders, services, or versionIds must be provided');
+      this.logger.error(error.message);
+      throw error;
     }
 
-    return this.request(url.value, { method: 'POST', body: { inputs, ...metadata } });
+    return this.request<ExportInit>(url.value, { method: 'POST', body: { inputs, ...metadata } }).then((response) => {
+      if (response.data?.id) {
+        this.logger.log(`export job created <${response.data.id}>`);
+        return response;
+      }
+
+      const { headers, data } = response;
+      const cause = {
+        request: { url: url.value, method: 'POST', headers: this.defaultHeaders, body: params },
+        response: { headers, body: data, raw: Serializable.serialize(data) },
+      };
+
+      const error = SparkApiError.when(422, { message: 'failed to produce an export job', cause });
+      this.logger.error(error.message);
+      throw error;
+    });
   }
 
-  async getStatus(
-    jobId: string,
-    { url: statusUrl, maxRetries = this.config.maxRetries }: { url?: string; maxRetries?: number } = {},
-  ): Promise<HttpResponse<ExportResult>> {
-    const url = Uri.from({}, { base: this.config.baseUrl.full, version: 'api/v4', endpoint: `export/${jobId}/status` });
+  /**
+   * Check the status of an export job.
+   * @param {string} jobId - the export job ID
+   * @param {StatusParams} params - optional parameters
+   * @returns {Promise<HttpResponse<ExportResult>>} - the export job results when completed
+   */
+  async getStatus(jobId: string, params: StatusParams = {}): Promise<HttpResponse<ExportResult>> {
+    const { url: statusUrl, maxRetries = this.config.maxRetries, retryInterval = 2 } = params;
+    const url = Uri.from(undefined, {
+      base: this.config.baseUrl.full,
+      version: 'api/v4',
+      endpoint: `export/${jobId}/status`,
+    });
 
     let retries = 0;
     while (retries < maxRetries) {
       const response = await this.request<ExportResult>(statusUrl ?? url.value);
       if (response.data?.status === 'closed' || response.data?.status === 'completed') {
+        this.logger.log(`export job <${jobId}> completed`);
         return response;
       }
 
       retries++;
       this.logger.log(`waiting for export job to complete (attempt ${retries} of ${maxRetries})`);
-
-      const timeout = getRetryTimeout(retries, 2);
+      const timeout = getRetryTimeout(retries, retryInterval);
       await new Promise((resolve) => setTimeout(resolve, timeout));
     }
-    throw SparkError.sdk({ message: 'export job status timed out' });
+
+    const error = SparkError.sdk({ message: `export job status timed out after ${retries} retries` });
+    this.logger.error(error.message);
+    throw error;
+  }
+
+  /**
+   * Download the exported files from an export job.
+   * @param {string | ExportResult} exported - the export job ID or results
+   * @returns {Promise<HttpResponse[]>} - a list of exported files
+   */
+  async download(exported: string | ExportResult): Promise<HttpResponse[]> {
+    const downloads: HttpResponse[] = [];
+
+    if (StringUtils.isString(exported)) {
+      downloads.push(await this.request(exported));
+      return downloads;
+    }
+
+    for (const file of exported.outputs.files) {
+      if (!file.file) continue;
+      try {
+        downloads.push(await this.request(file.file));
+      } catch (cause) {
+        this.logger.warn(`failed to download file <${file.file}>`, cause);
+      }
+    }
+    this.logger.log(`downloaded ${downloads.length} files from export job <${exported.id}>`);
+    return downloads;
   }
 }
 
 class Import extends ApiResource {
-  initiate(params: Readonly<ImportBodyParams>): Promise<HttpResponse<ImportInit>> {
-    const url = Uri.from({}, { base: this.config.baseUrl.full, version: 'api/v4', endpoint: 'import' });
+  declare readonly logger: Logger;
+
+  constructor(config: Config) {
+    super(config);
+    this.logger = Logger.of(config.logger);
+  }
+
+  /**
+   * Initiate an import job to import Spark entities into the platform.
+   * @param {ImportParams} params - what to import
+   * @returns {Promise<HttpResponse<ImportInit>>} - the import job details
+   */
+  initiate(params: ImportParams): Promise<HttpResponse<ImportInit>> {
+    const url = Uri.from(undefined, { base: this.config.baseUrl.full, version: 'api/v4', endpoint: 'import' });
     const metadata = {
       inputs: { services_modify: buildServiceUris(params.service) },
       services_existing: params.ifPresent ?? 'update',
@@ -89,26 +221,37 @@ class Import extends ApiResource {
     return this.request(url.value, { method: 'POST', multiparts });
   }
 
-  async getStatus(
-    jobId: string,
-    { url: statusUrl, maxRetries = this.config.maxRetries }: { url?: string; maxRetries?: number } = {},
-  ): Promise<HttpResponse<ImportResult>> {
-    const url = Uri.from({}, { base: this.config.baseUrl.full, version: 'api/v4', endpoint: `import/${jobId}/status` });
+  /**
+   * Check the status of an import job.
+   * @param {string} jobId - the import job ID
+   * @param {StatusParams} params - optional parameters
+   * @returns {Promise<HttpResponse<ImportResult>>} - the import job results when completed
+   */
+  async getStatus(jobId: string, params: StatusParams = {}): Promise<HttpResponse<ImportResult>> {
+    const { url: statusUrl, maxRetries = this.config.maxRetries, retryInterval = 2 } = params;
+    const url = Uri.from(undefined, {
+      base: this.config.baseUrl.full,
+      version: 'api/v4',
+      endpoint: `import/${jobId}/status`,
+    });
 
     let retries = 0;
     while (retries < maxRetries) {
       const response = await this.request<ImportResult>(statusUrl ?? url.value);
       if (response.data?.status === 'closed' || response.data?.status === 'completed') {
+        this.logger.log(`import job <${jobId}> completed`);
         return response;
       }
 
       retries++;
       this.logger.log(`waiting for import job to complete (attempt ${retries} of ${maxRetries})`);
-
-      const timeout = getRetryTimeout(retries, 2);
+      const timeout = getRetryTimeout(retries, retryInterval);
       await new Promise((resolve) => setTimeout(resolve, timeout));
     }
-    throw SparkError.sdk({ message: 'import job status timed out' });
+
+    const error = SparkError.sdk({ message: `import job status timed out after ${retries} retries` });
+    this.logger.error(error.message);
+    throw error;
   }
 }
 
@@ -118,7 +261,8 @@ export class Wasm extends ApiResource {
    * @param {string | UriParams} uri - how to locate the service
    * @returns {Promise<HttpResponse>} - a buffer of the WASM module as a zip file
    *
-   * NOTE: `serviceUri` made out of versionId downloads a wasm successfully.
+   * NOTE: As of now, only `serviceUri` made out of versionId downloads a wasm
+   * successfully. This issue is being tracked in the platform and will be fixed soon.
    */
   download(uri: string | Omit<UriParams, 'proxy' | 'version'>): Promise<HttpResponse> {
     const { folder, service, public: isPublic, serviceId, versionId } = Uri.toParams(uri);
@@ -128,6 +272,12 @@ export class Wasm extends ApiResource {
 
     return this.request(url.value);
   }
+}
+
+interface StatusParams {
+  url?: string;
+  maxRetries?: number;
+  retryInterval?: number;
 }
 
 interface ExportInit {
@@ -165,7 +315,7 @@ export interface ExportResult {
   };
 }
 
-interface ExportBodyParams {
+interface ExportParams {
   // FIXME: unclear whether these are mutually exclusive.
   folders?: string[];
   services?: string[];
@@ -174,6 +324,9 @@ interface ExportBodyParams {
   filters?: { file?: 'migrate' | 'onpremises'; version?: 'latest' | 'all' };
   sourceSystem?: string;
   correlationId?: string;
+  // retry settings
+  maxRetries?: number;
+  retryInterval?: number;
 }
 
 type ExportBody = {
@@ -192,12 +345,15 @@ interface ImportInit {
   status_url: string;
 }
 
-interface ImportBodyParams {
+interface ImportParams {
   file: Readable;
   service: string | string[] | ServiceUri | ServiceUri[];
   ifPresent?: 'abort' | 'replace' | 'add_version';
   sourceSystem?: string;
   correlationId?: string;
+  // retry settings
+  maxRetries?: number;
+  retryInterval?: number;
 }
 
 interface ServiceUri {

@@ -202,7 +202,7 @@ export class OAuth {
    * before making the next request using this method.
    */
   async retrieveToken(config: Config): Promise<void> {
-    const logger = new Logger(config.logger);
+    const logger = Logger.of(config.logger);
     logger.log('refreshing OAuth2 access token...');
 
     try {

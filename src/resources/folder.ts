@@ -14,7 +14,11 @@ export class Folder extends ApiResource {
    * @returns {Promise<HttpResponse<FolderCategories>>}
    */
   getCategories(): Promise<HttpResponse<FolderCategories>> {
-    const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint: 'lookup/getcategories' });
+    const url = Uri.from(undefined, {
+      base: this.config.baseUrl.value,
+      version: 'api/v1',
+      endpoint: 'lookup/getcategories',
+    });
     return this.request(url.value);
   }
 
@@ -25,7 +29,7 @@ export class Folder extends ApiResource {
    * @returns {Promise<HttpResponse<FolderCreated>>}
    */
   async create(params: string | CreateParams): Promise<HttpResponse<FolderCreated>> {
-    const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint: 'product/create' });
+    const url = Uri.from(undefined, { base: this.config.baseUrl.value, version: 'api/v1', endpoint: 'product/create' });
     const createParams = (StringUtils.isString(params) ? { name: params } : params) as CreateParams;
     const { name, category = 'Other', description, status, cover } = createParams;
     const [startDate, launchDate] = DateUtils.parse(createParams.startDate, createParams.launchDate);
@@ -40,20 +44,23 @@ export class Folder extends ApiResource {
     ];
 
     const response = await this.request<FolderLocation>(url.value, { method: 'POST', multiparts });
-    if (response.data.status === 'Success') {
-      if (cover) await this.uploadCover(response.data.data.folderId, cover);
-      return this.request<FolderCreated>(response.data.data.get_product_url);
+    const { data, headers } = response;
+    if (data.status === 'Success') {
+      if (cover) await this.uploadCover(data.data.folderId, cover);
+      return this.request<FolderCreated>(data.data.get_product_url);
     }
 
     const cause = {
       request: { url: url.value, method: 'POST', headers: this.defaultHeaders, body: multiparts },
-      response: { headers: response.headers, body: response.data, raw: Serializable.serialize(response.data) },
+      response: { headers, body: data, raw: Serializable.serialize(data) },
     };
 
-    if (response.data.errorCode === 'PRODUCT_ALREADY_EXISTS') {
-      throw SparkApiError.when(409, { message: `folder name <${name}> already exists`, cause });
-    }
-    throw SparkApiError.when(response.status, { message: `failed to create folder with name <${name}>`, cause });
+    const error =
+      response.data.errorCode === 'PRODUCT_ALREADY_EXISTS'
+        ? SparkApiError.when(409, { message: `folder name <${name}> already exists`, cause })
+        : SparkApiError.when(response.status, { message: `failed to create folder with name <${name}>`, cause });
+    this.logger.error(error.message);
+    throw error;
   }
 
   /**
@@ -67,7 +74,7 @@ export class Folder extends ApiResource {
    * for authentication.
    */
   find(params: string | SearchParams, paging: Paging = {}): Promise<HttpResponse<FolderListed>> {
-    const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint: 'product/list' });
+    const url = Uri.from(undefined, { base: this.config.baseUrl.value, version: 'api/v1', endpoint: 'product/list' });
     const searchParams = (StringUtils.isString(params) ? { name: params } : params) as SearchParams;
     const search = Object.entries(searchParams)
       .filter(([, value]) => !!value)
@@ -91,9 +98,8 @@ export class Folder extends ApiResource {
    * @returns {Promise<HttpResponse<FolderUpdated>>}
    */
   async update(id: string, params: Omit<CreateParams, 'name' | 'status'>): Promise<HttpResponse<FolderUpdated>> {
-    id = id?.trim();
-    const endpoint = `product/update/${id}`;
-    const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
+    const endpoint = `product/update/${id?.trim()}`;
+    const url = Uri.from(undefined, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
     const { cover, startDate, launchDate, ...rest } = params;
     if (cover) await this.uploadCover(id, cover);
 
@@ -113,7 +119,7 @@ export class Folder extends ApiResource {
    */
   delete(id: string): Promise<HttpResponse<FolderDeleted>> {
     const endpoint = `product/delete/${id?.trim()}`;
-    const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
+    const url = Uri.from(undefined, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
     return this.request(url.value, { method: 'DELETE' });
   }
 
@@ -125,9 +131,9 @@ export class Folder extends ApiResource {
    */
   uploadCover(id: string, cover: Readable): Promise<HttpResponse<CoverUploaded>> {
     const endpoint = `product/UploadCoverImage`;
-    const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
+    const url = Uri.from(undefined, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
     const multiparts: Multipart[] = [
-      { name: 'id', data: id.trim() },
+      { name: 'id', data: id?.trim() },
       { name: 'coverImage', fileStream: cover },
     ];
 

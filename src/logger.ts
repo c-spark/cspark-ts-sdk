@@ -1,5 +1,6 @@
 import { isBrowser } from './utils';
 import { sdkLogger } from './version';
+import { SparkError } from './error';
 
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   year: 'numeric',
@@ -89,6 +90,9 @@ export interface LoggerOptions {
 
   /** If enabled, the logger will print colorful logs. */
   colorful?: boolean;
+
+  /** The custom logger instance. */
+  logger?: LoggerService;
 }
 
 /**
@@ -156,11 +160,11 @@ class NodeLogger implements LoggerService {
     const formattedLevel = logLevel.toUpperCase().padStart(7, ' ');
     const timestamp = this.options.timestamp ? dateTimeFormatter.format(Date.now()) : '';
 
-    if (!this.options.colorful) return `${heading} ${timestamp} ${formattedLevel} ${message}\n`;
+    if (!this.options.colorful) return `${heading} ${timestamp} ${formattedLevel} - ${message}\n`;
 
     const coloredHeading = `\x1B[38;5;3m${heading}\x1B[39m`;
     const coloredTimestamp = `\x1B[34m${timestamp}\x1B[39m`;
-    const coloredLevelAndMsg = this.getColorByLogLevel(logLevel, `${formattedLevel} ${message}`);
+    const coloredLevelAndMsg = this.getColorByLogLevel(logLevel, `${formattedLevel} - ${message}`);
     return `${coloredHeading} ${coloredTimestamp} ${coloredLevelAndMsg}\n`;
   }
 
@@ -251,10 +255,10 @@ class BrowserLogger implements LoggerService {
     const formattedLevel = logLevel.toUpperCase();
     const timestamp = this.options.timestamp ? dateTimeFormatter.format(Date.now()) : '';
 
-    if (!this.options.colorful) return [`${heading} ${timestamp} ${formattedLevel} ${message}`];
+    if (!this.options.colorful) return [`${heading} ${timestamp} ${formattedLevel} - ${message}`];
 
     const levelColor = this.getColorByLogLevel(logLevel);
-    const formattedMessage = `%c${heading} %c${timestamp} %c${formattedLevel} ${message}`;
+    const formattedMessage = `%c${heading} %c${timestamp} %c${formattedLevel} - ${message}`;
     return [formattedMessage, `color: ${Colors.orange}`, `color: ${Colors.blue}`, `color: ${levelColor}`];
   }
 
@@ -290,31 +294,57 @@ export const DEFAULT_LOGGER_OPTIONS = {
 };
 const DEFAULT_LOGGER = new (isBrowser() ? BrowserLogger : NodeLogger)(DEFAULT_LOGGER_OPTIONS);
 
+/**
+ * A logger to print messages to the console.
+ *
+ * Based on the environment, the logger will use either a standard i/o console or
+ * or a browser console. The logger can be configured to print colorful logs and
+ * may include timestamps as part of the log message.
+ *
+ * This logger is inspired by NestJS's Logger.
+ * @see NodeLogger for more details.
+ *
+ * Keep in mind that a custom logger instance should come from a class that
+ * implements `LoggerService`. Subclassing `Logger` is not supported for now
+ * and will throw a `SparkError`.
+ */
 export class Logger implements LoggerService {
-  protected static staticInstanceRef: LoggerService = DEFAULT_LOGGER;
-  protected localInstanceRef?: LoggerService;
-  protected readonly options!: LoggerOptions;
+  static #staticInstanceRef: LoggerService = DEFAULT_LOGGER;
+  #localInstanceRef?: LoggerService;
+  readonly options!: LoggerOptions;
 
-  constructor();
-  constructor(context: string);
-  constructor(options: LoggerOptions);
-  constructor(options: string | LoggerOptions = {}) {
+  private constructor();
+  private constructor(context: string);
+  private constructor(options: LoggerOptions);
+  private constructor(options: string | LoggerOptions = {}) {
     this.options =
       typeof options === 'string' && options.length > 0
         ? { ...DEFAULT_LOGGER_OPTIONS, context: options }
         : { ...DEFAULT_LOGGER_OPTIONS, ...(options as LoggerOptions) };
+
+    const { logger } = this.options;
+    if (typeof logger === 'object' && !Array.isArray(logger) && logger !== null) {
+      if (logger instanceof Logger && logger.constructor !== Logger) {
+        throw SparkError.sdk({
+          message: `Please provide instances of a class that implements "LoggerService" instead.`,
+          cause: logger,
+        });
+      }
+      this.#localInstanceRef = logger;
+      Logger.#staticInstanceRef = logger!;
+    }
   }
 
   get localInstance(): LoggerService {
-    if (Logger.staticInstanceRef === DEFAULT_LOGGER) {
+    if (Logger.#staticInstanceRef === DEFAULT_LOGGER) {
       return this.registerLocalInstanceRef();
-    } else if (Logger.staticInstanceRef instanceof Logger) {
-      const prototype = Object.getPrototypeOf(Logger.staticInstanceRef);
+    } else if (Logger.#staticInstanceRef instanceof Logger) {
+      const prototype = Object.getPrototypeOf(Logger.#staticInstanceRef);
       if (prototype.constructor === Logger) {
         return this.registerLocalInstanceRef();
       }
     }
-    return Logger.staticInstanceRef;
+    return Logger.#staticInstanceRef;
   }
 
   error(message: any, ...optionalParams: any[]) {
@@ -348,49 +378,52 @@ export class Logger implements LoggerService {
     this.options.logLevels = logLevels ?? this.options.logLevels;
   }
 
-  static of(options?: boolean | string | LoggerOptions): LoggerOptions {
-    const defaultOptions: LoggerOptions = DEFAULT_LOGGER_OPTIONS;
+  static of(options?: boolean | string | LoggerOptions): Logger {
+    const loggerOptions = ((options?: boolean | string | LoggerOptions): LoggerOptions => {
+      const defaultOptions: LoggerOptions = DEFAULT_LOGGER_OPTIONS;
 
-    if (typeof options === 'boolean') return { logLevels: options ? defaultOptions.logLevels : ['none'] };
-    if (typeof options === 'string') return { ...defaultOptions, logLevels: [options.toLowerCase() as LogLevel] };
-    if (typeof options === 'object' && options !== null) return { ...defaultOptions, ...options };
-    return defaultOptions;
+      if (typeof options === 'boolean') return { logLevels: options ? defaultOptions.logLevels : ['none'] };
+      if (typeof options === 'string') return { ...defaultOptions, logLevels: [options.toLowerCase() as LogLevel] };
+      if (typeof options === 'object' && options !== null) return { ...defaultOptions, ...options };
+      return defaultOptions;
+    })(options);
+    return new Logger(loggerOptions);
   }
 
   static error(message: any, ...optionalParams: any[]) {
-    this.staticInstanceRef?.error(message, ...optionalParams);
+    this.#staticInstanceRef?.error(message, ...optionalParams);
   }
 
   static log(message: any, ...optionalParams: any[]) {
-    this.staticInstanceRef?.log(message, ...optionalParams);
+    this.#staticInstanceRef?.log(message, ...optionalParams);
   }
 
   static warn(message: any, ...optionalParams: any[]) {
-    this.staticInstanceRef?.warn(message, ...optionalParams);
+    this.#staticInstanceRef?.warn(message, ...optionalParams);
   }
 
   static debug(message: any, ...optionalParams: any[]) {
-    this.staticInstanceRef?.debug?.(message, ...optionalParams);
+    this.#staticInstanceRef?.debug?.(message, ...optionalParams);
   }
 
   static verbose(message: any, ...optionalParams: any[]) {
-    this.staticInstanceRef?.verbose?.(message, ...optionalParams);
+    this.#staticInstanceRef?.verbose?.(message, ...optionalParams);
   }
 
   static fatal(message: any, ...optionalParams: any[]) {
-    this.staticInstanceRef?.fatal?.(message, ...optionalParams);
+    this.#staticInstanceRef?.fatal?.(message, ...optionalParams);
   }
 
   static setOptions(options: LoggerOptions) {
-    this.staticInstanceRef?.setOptions?.(options);
+    this.#staticInstanceRef?.setOptions?.(options);
   }
 
   private registerLocalInstanceRef() {
-    if (this.localInstanceRef) return this.localInstanceRef;
+    if (this.#localInstanceRef) return this.#localInstanceRef;
 
     const logger = isBrowser() ? BrowserLogger : NodeLogger;
-    this.localInstanceRef = new logger(this.options);
-    return this.localInstanceRef;
+    this.#localInstanceRef = new logger(this.options);
+    return this.#localInstanceRef;
   }
 }
 

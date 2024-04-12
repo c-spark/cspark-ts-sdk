@@ -79,7 +79,8 @@ environments:
 </html>
 ```
 
-Explore the [examples](./examples/index.ts) folder to find out more about the SDK's capabilities.
+Explore the [examples](./examples/index.ts) and [documentation](./docs) folder
+to find out more about the SDK's capabilities.
 
 ## Client Options
 
@@ -159,7 +160,8 @@ const spark = new Spark({ oauth: 'path/to/credentials.json' });
     - `colorful` (default: `true`): determines whether the logs should be colorful;
     - `timestamp` (default: `true`): determines whether the logs should include timestamps;
     - `logLevels` (default: `['verbose', 'debug', 'log', 'warn', 'error', 'fatal']`):
-      determines the log levels to print.
+      determines the log levels to print;
+    - `logger`: a custom logger that implements the `LoggerService` interface.
 
 ```ts
 const spark = new Spark({ logger: true });
@@ -215,10 +217,11 @@ APIs are currently supported:
 
 [ImpEx API](./docs/impex.md) - for importing and exporting Spark services:
 
-| Verb                                           | Description                               |
-| ---------------------------------------------- | ----------------------------------------- |
-| `Spark.impex.export.initiate(data)`            | Initiate an Export job of spark services. |
-| `Spark.impex.export.getStatus(jobId, options)` | Check Export job status                   |
+| Verb                            | Description                                             |
+| ------------------------------- | ------------------------------------------------------- |
+| `Spark.impex.export(data)`      | Export Spark entities (versions, services, or folders). |
+| `Spark.impex.import(data)`      | Import exported Spark entities into your workspace.     |
+| `Spark.impex.migrate(from, to)` | Migrate Spark entities from one tenant to another.      |
 
 [Other APIs](./docs/misc.md) - for other functionalities:
 
@@ -238,7 +241,7 @@ spark.service
   .execute({ folder: 'my-folder', service: 'my-service', public: true }, { inputs: { value: 'Hello, Spark SDK!' } })
   .then((response) => console.log(response.data))
   .catch(console.error);
-// The final URI in this particular case will be: 'my-tenant/api/v3/public/folders/my-folder/services/my-service/execute'
+// The final URI in this case is: 'my-tenant/api/v3/public/folders/my-folder/services/my-service/execute'
 ```
 
 See the [Uri](./src/resources/base.ts) class for more details.

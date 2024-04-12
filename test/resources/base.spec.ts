@@ -28,7 +28,7 @@ describe('Uri', () => {
       'https://excel.test.coherent.global/tenant-name/api/v3/folders/f/services/s/execute',
     );
 
-    expect(Uri.from({}, { base: BASE_URL, version: 'api/v4', endpoint: 'execute' }).value).toBe(
+    expect(Uri.from(undefined, { base: BASE_URL, version: 'api/v4', endpoint: 'execute' }).value).toBe(
       'https://excel.test.coherent.global/tenant-name/api/v4/execute',
     );
 
@@ -57,7 +57,7 @@ describe('Uri', () => {
   });
 
   it('should throw an error if wrong uri params', () => {
-    expect(() => Uri.from({}, { base: BASE_URL })).not.toThrow(SparkError);
+    expect(() => Uri.from(undefined, { base: BASE_URL })).not.toThrow(SparkError);
     expect(() => Uri.partial('', { base: BASE_URL })).not.toThrow(SparkError);
 
     // Forcing a wrong base url to test failure to build a URL. During runtime, the base url

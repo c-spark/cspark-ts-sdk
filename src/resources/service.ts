@@ -145,7 +145,7 @@ export class Service extends ApiResource {
   getSchema(uri: string | Pick<UriParams, 'folder' | 'service'>): Promise<HttpResponse> {
     const { folder, service } = Uri.toParams(uri);
     const endpoint = `product/${folder}/engines/get/${service}`;
-    const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
+    const url = Uri.from(undefined, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
 
     return this.request(url.value);
   }
@@ -159,7 +159,7 @@ export class Service extends ApiResource {
   getVersions(uri: string | Pick<UriParams, 'folder' | 'service'>): Promise<HttpResponse> {
     const { folder, service } = Uri.toParams(uri);
     const endpoint = `product/${folder}/engines/getversions/${service}`;
-    const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
+    const url = Uri.from(undefined, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
 
     return this.request(url.value);
   }
@@ -221,7 +221,7 @@ export class Service extends ApiResource {
   download(uri: string | DownloadUriParams): Promise<HttpResponse> {
     const { folder, service, version = '', filename = '', type = 'original' } = Uri.toParams(uri);
     const endpoint = `product/${folder}/engines/${service}/download/${version}`;
-    const url = Uri.from({}, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
+    const url = Uri.from(undefined, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
     const params = { filename, type: type === 'configured' ? 'withmetadata' : '' };
 
     return this.request(url.value, { params });
@@ -250,7 +250,7 @@ export class Service extends ApiResource {
     const { folder, service, version, versionId, retries = this.config.maxRetries + 2, ...params } = Uri.toParams(uri);
     const serviceUri = Uri.encode({ folder, service, version }, false);
 
-    const response = await impex.export.initiate({
+    const response = await impex.exports.initiate({
       services: serviceUri ? [serviceUri] : [],
       versionIds: versionId ? [versionId] : [],
       ...params,
@@ -259,7 +259,7 @@ export class Service extends ApiResource {
     if (!jobId) throw new SparkError('failed to produce an export job', response);
     this.logger.log(`export job created <${jobId}>`);
 
-    const status = await impex.export.getStatus(jobId, { maxRetries: retries });
+    const status = await impex.exports.getStatus(jobId, { maxRetries: retries });
     if (status.data?.outputs?.files?.length === 0) {
       throw new SparkError('export job failed to produce any files', status);
     }
@@ -281,12 +281,12 @@ export class Service extends ApiResource {
     const impex = ImpEx.with(config);
     const { folder, service, retries = config.maxRetries + 3, ...params } = Uri.toParams(uri);
 
-    const response = await impex.import.initiate({ service: Uri.encode({ folder, service }, false), ...params });
+    const response = await impex.imports.initiate({ service: Uri.encode({ folder, service }, false), ...params });
     const jobId = response.data?.id;
     if (!jobId) throw new SparkError('failed to produce an import job', response);
     this.logger.log(`import job created <${jobId}>`);
 
-    return impex.import.getStatus(jobId, { maxRetries: retries });
+    return impex.imports.getStatus(jobId, { maxRetries: retries });
   }
 
   async migrate(params: MigrateUriParams) {

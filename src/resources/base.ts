@@ -5,7 +5,7 @@ import { SparkError } from '../error';
 import { Logger } from '../logger';
 import { userAgentHeader, sdkUaHeader } from '../version';
 import { _fetch, _download, HttpOptions, HttpResponse } from '../http';
-import Utils, { StringUtils } from '../utils';
+import Utils, { StringUtils, Maybe } from '../utils';
 
 /**
  * Base class for all API resources.
@@ -22,7 +22,7 @@ export abstract class ApiResource {
   protected readonly logger!: Logger;
 
   constructor(protected readonly config: Config) {
-    this.logger = new Logger(config.logger);
+    this.logger = Logger.of(config.logger);
   }
 
   protected get defaultHeaders(): Record<string, string> {
@@ -115,7 +115,7 @@ export class Uri {
   /**
    * Builds a Spark URI from UriParams.
    *
-   * @param uri - the distinct parameters to build a Spark URI from.
+   * @param {UriParams} uri - the distinct parameters to build a Spark URI from.
    * @returns {Uri} - a Spark URI
    * @throws {SparkError} - if a final URL cannot be built from the given
    * parameters.
@@ -124,7 +124,7 @@ export class Uri {
    * In this case, the order of priority: folder and service > serviceId > versionId > proxy.
    * However, if a `proxy` is provided, it will be used as the endpoint.
    */
-  static from(uri: UriParams, { base, version: path = 'api/v3', endpoint = '' }: UriOptions): Uri {
+  static from(uri: Maybe<UriParams> = {}, { base, version: path = 'api/v3', endpoint = '' }: UriOptions): Uri {
     const { folder, service, versionId, proxy, public: isPublic } = uri;
     if (isPublic) path += `/public`;
     if (folder && service) path += `/folders/${folder}/services/${service}`;
