@@ -246,7 +246,7 @@ export class Service extends ApiResource {
   }
 
   async export(uri: string | ExportUriParams): Promise<HttpResponse<ExportResult>[]> {
-    const impex = ImpEx.with(this.config);
+    const impex = ImpEx.only(this.config);
     const { folder, service, version, versionId, retries = this.config.maxRetries + 2, ...params } = Uri.toParams(uri);
     const serviceUri = Uri.encode({ folder, service, version }, false);
 
@@ -278,10 +278,10 @@ export class Service extends ApiResource {
 
   async import(uri: ImportUriParams): Promise<HttpResponse<ImportResult>> {
     const config = uri.config ?? this.config;
-    const impex = ImpEx.with(config);
+    const impex = ImpEx.only(config);
     const { folder, service, retries = config.maxRetries + 3, ...params } = Uri.toParams(uri);
 
-    const response = await impex.imports.initiate({ service: Uri.encode({ folder, service }, false), ...params });
+    const response = await impex.imports.initiate({ destination: Uri.encode({ folder, service }, false), ...params });
     const jobId = response.data?.id;
     if (!jobId) throw new SparkError('failed to produce an import job', response);
     this.logger.log(`import job created <${jobId}>`);

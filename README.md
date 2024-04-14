@@ -173,15 +173,15 @@ const spark = new Spark({ logger: { colorful: false, logLevels: ['warn', 'error'
 
 ## API Parity
 
-The SDK aims to provide over time full parity with the Spark API. The following
-APIs are currently supported:
+The SDK aims to provide over time full parity with the Spark API. Below is a list
+of the currently supported APIs.
 
 [Authentication API](./docs/authentication.md) - for generating access tokens using:
 
-| Verb                                      | Description                                                                   |
-| ----------------------------------------- | ----------------------------------------------------------------------------- |
-| `Spark.config.auth.oauth.retrieveToken()` | Generate access token using OAuth2.0 via Client Credentials flow.             |
-| `Spark.config.auth.oauth.refreshToken()`  | Refresh access token when expired using OAuth2.0 via Client Credentials flow. |
+| Verb                                            | Description                                                                   |
+| ----------------------------------------------- | ----------------------------------------------------------------------------- |
+| `Spark.config.auth.oauth.retrieveToken(config)` | Generate access token using OAuth2.0 Client Credentials flow.                 |
+| `Spark.config.auth.oauth.refreshToken(config)`  | Refresh access token when expired using OAuth2.0 via Client Credentials flow. |
 
 [Folder API](./docs/folder.md) - for managing folders:
 
@@ -217,11 +217,10 @@ APIs are currently supported:
 
 [ImpEx API](./docs/impex.md) - for importing and exporting Spark services:
 
-| Verb                            | Description                                             |
-| ------------------------------- | ------------------------------------------------------- |
-| `Spark.impex.export(data)`      | Export Spark entities (versions, services, or folders). |
-| `Spark.impex.import(data)`      | Import exported Spark entities into your workspace.     |
-| `Spark.impex.migrate(from, to)` | Migrate Spark entities from one tenant to another.      |
+| Verb                       | Description                                             |
+| -------------------------- | ------------------------------------------------------- |
+| `Spark.impex.export(data)` | Export Spark entities (versions, services, or folders). |
+| `Spark.impex.import(data)` | Import exported Spark entities into your workspace.     |
 
 [Other APIs](./docs/misc.md) - for other functionalities:
 

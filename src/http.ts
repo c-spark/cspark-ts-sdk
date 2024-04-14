@@ -111,13 +111,9 @@ export interface Interceptor {
  * @returns {int} The number of milliseconds after which to retry
  */
 export function getRetryTimeout(retries: number, baseInterval: number = 1): number {
-  // Retry intervals are between 50% and 150% of the exponentially increasing base amount
-  const RETRY_RANDOMIZATION_FACTOR = 0.5;
-  const minRandomization = 1 - RETRY_RANDOMIZATION_FACTOR;
-  const maxRandomization = 1 + RETRY_RANDOMIZATION_FACTOR;
-  const randomization = Math.random() * (maxRandomization - minRandomization) + minRandomization;
-  const exponential = Math.pow(2, retries - 1);
-  return Math.ceil(exponential * baseInterval * 1000 * randomization);
+  const RETRY_RANDOMIZATION_FACTOR = 1.5;
+  const randomization = Math.random() * RETRY_RANDOMIZATION_FACTOR;
+  return Math.ceil(retries * baseInterval * 1000 * randomization);
 }
 
 async function createRequestInit(options: HttpOptions): Promise<RequestInit> {

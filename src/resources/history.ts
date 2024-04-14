@@ -20,12 +20,21 @@ export class History extends ApiResource {
   async rehydrate(uri: string | RehydrateUriParams, callId?: string): Promise<HttpResponse<LogRehydrated>> {
     const { folder, service, ...params } = Uri.toParams(uri);
     callId = (callId ?? params?.callId)?.trim();
-    if (!callId) throw SparkError.sdk({ message: 'callId is required', cause: callId });
-    const url = Uri.from({ folder, service }, { base: this.config.baseUrl.full, endpoint: `download/${callId}` });
+    if (!callId) {
+      const error = SparkError.sdk({ message: 'callId is required', cause: callId });
+      this.logger.error(error.message);
+      throw error;
+    }
 
+    const url = Uri.from({ folder, service }, { base: this.config.baseUrl.full, endpoint: `download/${callId}` });
     const response = await this.request<LogRehydrated>(url.value);
     const downloadUrl = response.data?.response_data?.download_url;
-    if (!downloadUrl) throw new SparkError('failed to produce a download URL', response);
+
+    if (!downloadUrl) {
+      const error = new SparkError('failed to produce a download URL', response);
+      this.logger.error(error.message);
+      throw error;
+    }
 
     const download = await this.request(downloadUrl);
     return { ...download, data: { ...response.data, status: 'Success' } };
@@ -40,17 +49,24 @@ export class History extends ApiResource {
    * @throws {SparkError} - if the download job fails to produce a downloadable file.
    */
   async download(uri: string | DownloadUriParams, type?: DownloadFileType): Promise<HttpResponse<LogStatus>> {
-    const { folder, service, ...params } = Uri.toParams(uri);
+    const { folder, service, maxRetries = this.config.maxRetries, retryInterval = 3, ...params } = Uri.toParams(uri);
     type = (type ?? params?.type ?? 'json').toLowerCase() as DownloadFileType;
 
     const response = await this.downloads.initiate(uri, type);
     const jobId = response.data?.response_data?.job_id;
-    if (!jobId) throw new SparkError('failed to produce a download job', response);
-    this.logger.log(`${type} download job created <${jobId}>`);
+    if (!jobId) {
+      const error = new SparkError('failed to produce a download job', response);
+      this.logger.error(error.message);
+      throw error;
+    }
 
-    const job = await this.downloads.getStatus({ folder, service, jobId, type, maxRetries: params.maxRetries });
+    const job = await this.downloads.getStatus({ folder, service, jobId, type, maxRetries, retryInterval });
     const downloadUrl = job.data.response_data.download_url;
-    if (!downloadUrl) throw new SparkError(`failed to produce a download URL for <${jobId}>`, job);
+    if (!downloadUrl) {
+      const error = new SparkError(`failed to produce a download URL for <${jobId}>`, job);
+      this.logger.error(error.message);
+      throw error;
+    }
 
     const download = await this.request(downloadUrl);
     return { ...download, status: job.status, data: { ...job.data, status: 'Success' } };
@@ -90,7 +106,10 @@ class LogDownload extends ApiResource {
       };
     })(params);
 
-    return this.request<JobCreated>(url.value, { method: 'POST', body });
+    return this.request<JobCreated>(url.value, { method: 'POST', body }).then((response) => {
+      this.logger.log(`${type} download job created <${response.data.response_data.job_id}>`);
+      return response;
+    });
   }
 
   /**
@@ -101,7 +120,7 @@ class LogDownload extends ApiResource {
    * @throws {SparkError} - if the download job status check times out.
    */
   async getStatus(uri: string | GetStatusUriParams, type?: DownloadFileType): Promise<HttpResponse<LogStatus>> {
-    const { jobId, maxRetries = this.config.maxRetries + 10, ...params } = Uri.toParams(uri);
+    const { jobId, maxRetries = this.config.maxRetries, retryInterval = 3, ...params } = Uri.toParams(uri);
     type = (type ?? params?.type ?? 'json').toLowerCase() as DownloadFileType;
     const url = Uri.from(params, { base: this.config.baseUrl.full, endpoint: `log/download${type}/status/${jobId}` });
 
@@ -112,7 +131,7 @@ class LogDownload extends ApiResource {
       if (progress == 100) return response;
 
       this.logger.log(`waiting for log status job to complete - ${progress || 0}%`);
-      await new Promise((resolve) => setTimeout(resolve, getRetryTimeout(retries, 3)));
+      await new Promise((resolve) => setTimeout(resolve, getRetryTimeout(retries, retryInterval)));
 
       retries++;
       response = await this.request<LogStatus>(url.value);
@@ -120,7 +139,9 @@ class LogDownload extends ApiResource {
 
     if (response.data.response_data.download_url) return response;
 
-    throw SparkError.sdk({ message: 'log download job status check timed out', cause: response });
+    const error = SparkError.sdk({ message: 'log download job status check timed out', cause: response });
+    this.logger.error(error.message);
+    throw error;
   }
 }
 
@@ -154,6 +175,7 @@ interface CreateJobUriParams extends Pick<UriParams, 'folder' | 'service' | 'ver
 interface DownloadUriParams extends CreateJobUriParams {
   /** Defaults to `Config.maxRetries` */
   maxRetries?: number;
+  retryInterval?: number;
 }
 
 interface GetStatusUriParams extends Pick<UriParams, 'folder' | 'service'> {
@@ -164,6 +186,7 @@ interface GetStatusUriParams extends Pick<UriParams, 'folder' | 'service'> {
   type?: DownloadFileType;
   /** Defaults to `Config.maxRetries` */
   maxRetries?: number;
+  retryInterval?: number;
 }
 
 type HistoryApiResponse<T = Record<string, any>> = ApiResponse & { response_data: T };

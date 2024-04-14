@@ -12,14 +12,13 @@ import Config from './config';
 import Folder from './folder';
 import Service from './service';
 import History from './history';
-import Wasm from './wasm';
+import ImpEx from './impex';
 
 const token = 'insert-my-access-token';
 const spark = new Spark({ token, env: 'my-env', tenant: 'my-tenant' });
 
-Config.retrieveToken(spark);
 Config.printLogs();
-Wasm.download(spark);
+Config.retrieveToken(spark);
 
 Folder.getCategories(spark);
 Folder.create(spark);
@@ -41,3 +40,7 @@ Service.validate(spark);
 
 History.rehydrate(spark);
 History.download(spark);
+
+ImpEx.export(spark);
+ImpEx.import(spark);
+ImpEx.downloadWasm(spark);

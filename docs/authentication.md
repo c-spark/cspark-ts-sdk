@@ -1,4 +1,4 @@
-# Authentication API
+# Authentication
 
 The SDK supports three types of authentication mechanisms:
 

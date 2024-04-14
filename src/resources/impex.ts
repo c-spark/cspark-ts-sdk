@@ -3,29 +3,28 @@ import { type Readable } from 'stream';
 import Utils, { StringUtils } from '../utils';
 import { Config } from '../config';
 import { Logger } from '../logger';
-import { SparkError, SparkApiError } from '../error';
-import { Serializable } from '../data';
+import { SparkError } from '../error';
 import { SPARK_SDK } from '../constants';
 import { HttpResponse, Multipart, getRetryTimeout } from '../http';
 import { ApiResource, Uri, UriParams } from './base';
 
 export class ImpEx {
-  constructor(protected readonly configs: { readonly exports: Config; readonly imports: Config }) {}
+  private constructor(readonly config: Config) {}
 
-  static with(config: Config): ImpEx {
-    return new ImpEx({ exports: config, imports: config });
+  static only(config: Config): ImpEx {
+    return new ImpEx(config);
   }
 
-  static migration(from: Config, to: Config): ImpEx {
-    return new ImpEx({ exports: from, imports: to });
+  static migration(configs: { exports: Config; imports: Config }): Migration {
+    return new Migration(configs);
   }
 
   get exports() {
-    return new Export(this.configs.exports);
+    return new Export(this.config);
   }
 
   get imports() {
-    return new Import(this.configs.imports);
+    return new Import(this.config);
   }
 
   /**
@@ -40,7 +39,7 @@ export class ImpEx {
    * consider using the `exports` resource directly.
    */
   async export(params: ExportParams): Promise<HttpResponse[]> {
-    const { maxRetries = this.configs.exports.maxRetries, retryInterval } = params ?? {};
+    const { maxRetries = this.config.maxRetries, retryInterval } = params ?? {};
     const response = await this.exports.initiate(params);
 
     const status = await this.exports.getStatus(response.data.id, { maxRetries, retryInterval });
@@ -65,7 +64,7 @@ export class ImpEx {
    * consider using the `imports` resource directly.
    */
   async import(params: ImportParams): Promise<HttpResponse<ImportResult>> {
-    const { maxRetries = this.configs.imports.maxRetries, retryInterval } = params ?? {};
+    const { maxRetries = this.config.maxRetries, retryInterval } = params ?? {};
     const response = await this.imports.initiate(params);
 
     const status = await this.imports.getStatus(response.data.id, { maxRetries, retryInterval });
@@ -73,13 +72,42 @@ export class ImpEx {
       const error = new SparkError('import job failed with errors', status);
       this.imports.logger.error(error.message);
       throw error;
-    } else if (status.data?.outputs?.services?.length === 0) {
+    } else if (status.data?.outputs?.services?.length === 0 || status.data?.outputs?.service_versions?.length === 0) {
       this.imports.logger.warn('import job completed without any services');
     } else {
-      this.imports.logger.log(`imported ${status.data.outputs.services.length} services`);
+      this.imports.logger.log(`${status.data.outputs.services.length} service(s) imported`);
     }
 
     return status;
+  }
+}
+
+export class Migration {
+  constructor(protected readonly configs: { readonly exports: Config; readonly imports: Config }) {}
+
+  get exports() {
+    return new Export(this.configs.exports);
+  }
+
+  get imports() {
+    return new Import(this.configs.imports);
+  }
+
+  /**
+   * Migrate Spark entities from one platform to another (experimental feature).
+   * @param {MigrateParams} params - which entities to migrate and where
+   * @throws {SparkError} when the migration fails
+   */
+  async migrate(params: MigrateParams) {
+    const importables = await ImpEx.only(this.configs.exports).export(params);
+    const importer = ImpEx.only(this.configs.imports);
+
+    const migration = [];
+    for (const importable of importables) {
+      const imported = await importer.import({ ...params, file: importable.buffer, destination: params.destination });
+      migration.push({ exports: importable, imports: imported });
+    }
+    return migration;
   }
 }
 
@@ -116,20 +144,8 @@ class Export extends ApiResource {
     }
 
     return this.request<ExportInit>(url.value, { method: 'POST', body: { inputs, ...metadata } }).then((response) => {
-      if (response.data?.id) {
-        this.logger.log(`export job created <${response.data.id}>`);
-        return response;
-      }
-
-      const { headers, data } = response;
-      const cause = {
-        request: { url: url.value, method: 'POST', headers: this.defaultHeaders, body: params },
-        response: { headers, body: data, raw: Serializable.serialize(data) },
-      };
-
-      const error = SparkApiError.when(422, { message: 'failed to produce an export job', cause });
-      this.logger.error(error.message);
-      throw error;
+      this.logger.log(`export job created <${response.data.id}>`);
+      return response;
     });
   }
 
@@ -205,20 +221,23 @@ class Import extends ApiResource {
    * @param {ImportParams} params - what to import
    * @returns {Promise<HttpResponse<ImportInit>>} - the import job details
    */
-  initiate(params: ImportParams): Promise<HttpResponse<ImportInit>> {
+  async initiate(params: ImportParams): Promise<HttpResponse<ImportInit>> {
     const url = Uri.from(undefined, { base: this.config.baseUrl.full, version: 'api/v4', endpoint: 'import' });
     const metadata = {
-      inputs: { services_modify: buildServiceUris(params.service) },
-      services_existing: params.ifPresent ?? 'update',
+      inputs: { services_modify: buildServiceMappings(params.destination) },
+      services_existing: params.ifPresent ?? 'abort',
       source_system: params.sourceSystem ?? SPARK_SDK,
       correlation_id: params.correlationId,
     };
     const multiparts: Multipart[] = [
       { name: 'importRequestEntity', data: metadata },
-      { name: 'file', fileStream: params.file },
+      { name: 'file', fileStream: params.file, fileName: 'package.zip', contentType: 'application/zip' },
     ];
 
-    return this.request(url.value, { method: 'POST', multiparts });
+    return this.request<ImportInit>(url.value, { method: 'POST', multiparts }).then((response) => {
+      this.logger.log(`import job created <${response.data.id}>`);
+      return response;
+    });
   }
 
   /**
@@ -274,11 +293,66 @@ export class Wasm extends ApiResource {
   }
 }
 
+function buildServiceMappings(
+  serviceUri: string | string[] | ServiceMapping | ServiceMapping[],
+  upgradeType: UpgradeType = 'minor',
+): ImportBody['inputs']['services_modify'] {
+  if (StringUtils.isString(serviceUri)) {
+    const source = serviceUri as string;
+    return [{ service_uri_source: source, service_uri_destination: source, update_version_type: upgradeType }];
+  }
+
+  if (Array.isArray(serviceUri)) {
+    const serviceUris = [];
+    for (const uri of serviceUri) {
+      if (!uri) continue;
+      serviceUris.push(...buildServiceMappings(uri, upgradeType));
+    }
+    return serviceUris;
+  }
+
+  if (serviceUri && (serviceUri as ServiceMapping)?.source) {
+    const { source, target = source, upgrade = upgradeType } = serviceUri as ServiceMapping;
+    return [{ service_uri_source: source, service_uri_destination: target, update_version_type: upgrade }];
+  }
+
+  throw SparkError.sdk({ message: 'invalid import service uri', cause: serviceUri });
+}
+
+type UpgradeType = 'major' | 'minor' | 'patch';
+
+interface ServiceMapping {
+  source: string;
+  target?: string;
+  upgrade?: UpgradeType;
+}
+
 interface StatusParams {
   url?: string;
   maxRetries?: number;
   retryInterval?: number;
 }
+
+interface ExportParams {
+  folders?: string[];
+  services?: string[];
+  versionIds?: string[];
+  filters?: { file?: 'migrate' | 'onpremises'; version?: 'latest' | 'all' };
+  sourceSystem?: string;
+  correlationId?: string;
+  maxRetries?: number;
+  retryInterval?: number;
+}
+
+type ExportBody = {
+  inputs: {
+    folders?: string[];
+    services?: string[];
+    version_ids?: string[];
+  };
+  source_system?: string;
+  correlation_id?: string;
+};
 
 interface ExportInit {
   id: string;
@@ -315,54 +389,15 @@ export interface ExportResult {
   };
 }
 
-interface ExportParams {
-  // FIXME: unclear whether these are mutually exclusive.
-  folders?: string[];
-  services?: string[];
-  versionIds?: string[];
-  // metadata
-  filters?: { file?: 'migrate' | 'onpremises'; version?: 'latest' | 'all' };
-  sourceSystem?: string;
-  correlationId?: string;
-  // retry settings
-  maxRetries?: number;
-  retryInterval?: number;
-}
-
-type ExportBody = {
-  inputs: {
-    folders?: string[];
-    services?: string[];
-    version_ids?: string[];
-  };
-  source_system?: string;
-  correlation_id?: string;
-};
-
-interface ImportInit {
-  id: string;
-  object: string;
-  status_url: string;
-}
-
 interface ImportParams {
   file: Readable;
-  service: string | string[] | ServiceUri | ServiceUri[];
+  destination: string | string[] | ServiceMapping | ServiceMapping[];
   ifPresent?: 'abort' | 'replace' | 'add_version';
   sourceSystem?: string;
   correlationId?: string;
-  // retry settings
   maxRetries?: number;
   retryInterval?: number;
 }
-
-interface ServiceUri {
-  source: string;
-  target?: string;
-  upgrade?: UpgradeType;
-}
-
-type UpgradeType = 'major' | 'minor' | 'patch';
 
 type ImportBody = {
   inputs: {
@@ -376,6 +411,12 @@ type ImportBody = {
   source_system?: string;
   correlation_id?: string;
 };
+
+interface ImportInit {
+  id: string;
+  object: string;
+  status_url: string;
+}
 
 export interface ImportResult {
   id: string;
@@ -417,28 +458,15 @@ export interface ImportResult {
   };
 }
 
-function buildServiceUris(
-  serviceUri: string | string[] | ServiceUri | ServiceUri[],
-  upgradeType: UpgradeType = 'minor',
-): ImportBody['inputs']['services_modify'] {
-  if (StringUtils.isString(serviceUri)) {
-    const source = serviceUri as string;
-    return [{ service_uri_source: source, service_uri_destination: source, update_version_type: upgradeType }];
-  }
-
-  if (Array.isArray(serviceUri)) {
-    const serviceUris = [];
-    for (const uri of serviceUri) {
-      if (!uri) continue;
-      serviceUris.push(...buildServiceUris(uri, upgradeType));
-    }
-    return serviceUris;
-  }
-
-  if (serviceUri && (serviceUri as ServiceUri)?.source) {
-    const { source, target = source, upgrade = upgradeType } = serviceUri as ServiceUri;
-    return [{ service_uri_source: source, service_uri_destination: target, update_version_type: upgrade }];
-  }
-
-  throw new SparkError('invalid import service uri', serviceUri);
+interface MigrateParams {
+  folders?: string[];
+  services?: string[];
+  versionIds?: string[];
+  filters?: { file?: 'migrate' | 'onpremises'; version?: 'latest' | 'all' };
+  ifPresent?: 'abort' | 'replace' | 'add_version';
+  destination: string | string[] | ServiceMapping | ServiceMapping[];
+  sourceSystem?: string;
+  correlationId?: string;
+  maxRetries?: number;
+  retryInterval?: number;
 }

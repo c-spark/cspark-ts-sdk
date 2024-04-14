@@ -100,15 +100,30 @@ export class Client {
   }
 
   get impex(): API.ImpEx {
-    return API.ImpEx.with(this.config);
+    return API.ImpEx.only(this.config);
   }
 
   get wasm(): API.Wasm {
     return new API.Wasm(this.config);
   }
 
+  /**
+   * Download a file from the given URL.
+   * @param url - valid URL
+   * @param auth - optional authorization
+   */
   static download(url: string, auth?: Authorization) {
     return API.download(url, auth);
+  }
+
+  /**
+   * Prepare migration data from one tenant to another.
+   * @param {Config} to - target tenant configuration
+   * @param {Config} from - optional source tenant configuration; if not provided,
+   * the current tenant configuration will be used as the source.
+   */
+  migration(to: Config, from: Config = this.config) {
+    return API.ImpEx.migration({ exports: from, imports: to });
   }
 }
 
