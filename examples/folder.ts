@@ -9,9 +9,10 @@ function getCategories(spark: SparkClient) {
 }
 
 function create(spark: SparkClient) {
-  const cover = createReadStream('my-cover.png');
+  const fileName = 'my-cover.png';
+  const image = createReadStream(fileName);
   spark.folder
-    .create({ name: 'some-folder-name', cover })
+    .create({ name: 'some-folder-name', cover: { image, fileName } })
     .then((response) => console.log(response.data))
     .catch(console.error);
 }

@@ -12,13 +12,13 @@
 This method helps you download a service's [WebAssembly](https://webassembly.org/)
 module.
 
-If you've never used WebAssembly (or WASM) before, it's a binary instruction format
+Roughly speaking, WebAssembly (or WASM) is a binary instruction format
 for a stack-based virtual machine. It's designed as a portable compilation target
 for programming languages, enabling deployment on the web for client and server
 applications.
 
-In the context of Coherent Spark, a WebAssembly module refers to a cohesive bundle
-of files designed for portability and execution across web and Node.js environments.
+In the context of Spark, a WebAssembly module refers to a cohesive bundle of
+files designed for portability and execution across web and Node.js environments.
 This bundle typically includes the WebAssembly representation of the Spark service's
 encapsulated logic along with associated JavaScript files. By bundling these
 components together, a Spark service becomes executable within both browser and
@@ -89,7 +89,7 @@ The downloaded zip file should have the following files:
 ## Download a Spark file
 
 Some Spark APIs may generate temporary files upon execution. This method helps you
-download these files, which, oftentimes, require a valid token for access.
+download these files, which oftentimes require a valid token for access.
 
 ### Arguments
 

@@ -39,17 +39,18 @@ export class ImpEx {
    * consider using the `exports` resource directly.
    */
   async export(params: ExportParams): Promise<HttpResponse[]> {
+    const exporter = this.exports;
     const { maxRetries = this.config.maxRetries, retryInterval } = params ?? {};
-    const response = await this.exports.initiate(params);
+    const response = await exporter.initiate(params);
 
-    const status = await this.exports.getStatus(response.data.id, { maxRetries, retryInterval });
+    const status = await exporter.getStatus(response.data.id, { maxRetries, retryInterval });
     if (status.data?.outputs?.files?.length === 0) {
       const error = new SparkError('export job failed to produce any files', status);
-      this.exports.logger.error(error.message);
+      exporter.logger.error(error.message);
       throw error;
     }
 
-    return this.exports.download(status.data);
+    return exporter.download(status.data);
   }
 
   /**
@@ -64,18 +65,19 @@ export class ImpEx {
    * consider using the `imports` resource directly.
    */
   async import(params: ImportParams): Promise<HttpResponse<ImportResult>> {
+    const importer = this.imports;
     const { maxRetries = this.config.maxRetries, retryInterval } = params ?? {};
-    const response = await this.imports.initiate(params);
+    const response = await importer.initiate(params);
 
-    const status = await this.imports.getStatus(response.data.id, { maxRetries, retryInterval });
+    const status = await importer.getStatus(response.data.id, { maxRetries, retryInterval });
     if (status.data?.errors) {
       const error = new SparkError('import job failed with errors', status);
-      this.imports.logger.error(error.message);
+      importer.logger.error(error.message);
       throw error;
     } else if (status.data?.outputs?.services?.length === 0 || status.data?.outputs?.service_versions?.length === 0) {
-      this.imports.logger.warn('import job completed without any services');
+      importer.logger.warn('import job completed without any services');
     } else {
-      this.imports.logger.log(`${status.data.outputs.services.length} service(s) imported`);
+      importer.logger.log(`${status.data.outputs.services.length} service(s) imported`);
     }
 
     return status;
@@ -187,6 +189,8 @@ class Export extends ApiResource {
    * @param {string | ExportResult} exported - the export job ID or results
    * @returns {Promise<HttpResponse[]>} - a list of exported files
    */
+  async download(exported: string): Promise<HttpResponse[]>;
+  async download(exported: ExportResult): Promise<HttpResponse[]>;
   async download(exported: string | ExportResult): Promise<HttpResponse[]> {
     const downloads: HttpResponse[] = [];
 
@@ -283,6 +287,8 @@ export class Wasm extends ApiResource {
    * NOTE: As of now, only `serviceUri` made out of versionId downloads a wasm
    * successfully. This issue is being tracked in the platform and will be fixed soon.
    */
+  download(uri: string): Promise<HttpResponse>;
+  download(params: Omit<UriParams, 'proxy' | 'version'>): Promise<HttpResponse>;
   download(uri: string | Omit<UriParams, 'proxy' | 'version'>): Promise<HttpResponse> {
     const { folder, service, public: isPublic, serviceId, versionId } = Uri.toParams(uri);
     const serviceUri = Uri.encode({ folder, service, serviceId, versionId });

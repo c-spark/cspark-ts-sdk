@@ -16,6 +16,52 @@ which shall help you save time and streamline your development process.
 - [ImpEx API](./impex.md)
 - [Other APIs](./misc.md)
 
+## Getting Started
+
+### EcmaScript Modules (ESM) vs CommonJS (CJS)
+
+The SDK is written in TypeScript and compiled to both EcmaScript Modules (ESM) and
+CommonJS (CJS) formats. You can import the SDK in your project using either of these
+formats:
+
+**Using ESM:**
+
+```ts
+import Spark from '@cspark/sdk';
+```
+
+**Or using CJS:**
+
+```ts
+const { SparkClient: Spark } = require('@cspark/sdk');
+```
+
+To maintain consistency across the examples used in the SDK documentation and to
+avoid confusion, we will use the ESM format in all the code snippets.
+
+### Transactional vs Non-Transactional Requests
+
+Most of the SDK methods are non-transactional, meaning that a request is expected
+to perform one task only by hitting one Spark endpoint only. In short, a stateless roundtrip.
+However, some methods will perform multiple API requests to complete a task (or transaction).
+For example:
+
+- `Spark.folder.create(data)` will create a folder and upload a cover image (if any)
+  in separate requests.
+- `Spark.service.create(data)` will upload an excel file, check its status until
+  completion, and publish it as a Spark service.
+- `Spark.impex.export(data)` will initiate an export job, check its status until
+  completion, and download a zip containing all the necessary files associated
+  with a Spark service.
+
+> **PRO TIP**: You may notice multiple requests being made in the logs (if enabled)
+> when using these methods.
+
+These transactional methods are quite useful as they will handle the entire process
+for you, from start to finish. Unfortunately, they may take a bit longer to complete.
+Therefore, you are welcome to use non-transactional methods if you want more
+control over the process.
+
 ## HTTP Request
 
 The SDK is shipped with a built-in logger that will log all HTTP requests
@@ -97,6 +143,7 @@ as well as the obtained response if available.
 {
   "name": "UnauthorizedError",
   "status": 401,
+  "message": "failed to fetch <URL>",
   "cause": {
     "request": {
       "url": "https://excel.my-env.coherent.global/api/v1/product/delete/uuid",
@@ -173,52 +220,6 @@ supported by the Spark platform.
 
 The `Uri` class is also available to help you build the URL for your custom resource.
 In this particular example, the built URL will be: `https://excel.my-env.coherent.global/my-tenant/api/v4/my/resource`.
-
-## Other Considerations
-
-### EcmaScript Modules (ESM) vs CommonJS (CJS)
-
-The SDK is written in TypeScript and compiled to both EcmaScript Modules (ESM) and
-CommonJS (CJS) formats. You can import the SDK in your project using either of these
-formats:
-
-**Using ESM:**
-
-```ts
-import Spark from '@cspark/sdk';
-```
-
-**Or using CJS:**
-
-```ts
-const { SparkClient: Spark } = require('@cspark/sdk');
-```
-
-To maintain consistency across the examples used in the SDK documentation and to
-avoid confusion, we will use the ESM format in all the code snippets.
-
-### Transactional vs Non-Transactional Requests
-
-Most of the SDK methods are non-transactional, meaning that a request is expected
-to perform one task only by hitting only one Spark endpoint. A stateless roundtrip.
-However, some methods are transactional, meaning that they will perform multiple
-tasks in a single request. For example:
-
-- `Spark.folder.create(data)`: will create a folder and upload a cover image (if any)
-  in separate requests.
-- `Spark.service.create(data)`: will upload an excel file, check its status until
-  completion, and publish it as a Spark service.
-- `Spark.impex.export(data)`: will initiate an export job, check its status until
-  completion, and download a zip containing all the necessary files associated
-  with a Spark service.
-
-> **PRO TIP**: You may notice multiple requests being made in the logs (if enabled)
-> when using these methods. It should also be noted that these transactional methods
-> may take a bit longer to complete than the non-transactional ones.
-
-These transactional methods are quite useful as they will handle the entire process
-for you, from start to finish. However, you are welcome to use the non-transactional
-methods if you need more control over the process.
 
 ### Error Handling
 

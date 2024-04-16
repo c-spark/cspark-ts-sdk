@@ -28,6 +28,8 @@ export class Folder extends ApiResource {
    * If `params` is a string, it will be used as the folder name.
    * @returns {Promise<HttpResponse<FolderCreated>>}
    */
+  async create(params: CreateParams): Promise<HttpResponse<FolderCreated>>;
+  async create(name: string): Promise<HttpResponse<FolderCreated>>;
   async create(params: string | CreateParams): Promise<HttpResponse<FolderCreated>> {
     const url = Uri.from(undefined, { base: this.config.baseUrl.value, version: 'api/v1', endpoint: 'product/create' });
     const createParams = (StringUtils.isString(params) ? { name: params } : params) as CreateParams;
@@ -73,6 +75,10 @@ export class Folder extends ApiResource {
    * Note: `SearchParams.favorite` requires additional permissions if you're using API keys
    * for authentication.
    */
+  find(params: SearchParams, paging?: Paging): Promise<HttpResponse<FolderListed>>;
+  find(params: SearchParams): Promise<HttpResponse<FolderListed>>;
+  find(name: string, paging?: Paging): Promise<HttpResponse<FolderListed>>;
+  find(name: string): Promise<HttpResponse<FolderListed>>;
   find(params: string | SearchParams, paging: Paging = {}): Promise<HttpResponse<FolderListed>> {
     const url = Uri.from(undefined, { base: this.config.baseUrl.value, version: 'api/v1', endpoint: 'product/list' });
     const searchParams = (StringUtils.isString(params) ? { name: params } : params) as SearchParams;
@@ -126,15 +132,15 @@ export class Folder extends ApiResource {
   /**
    * Upload cover image to a folder by ID.
    * @param {string} id - Folder ID
-   * @param {Readable} cover - base64 encoded cover image
+   * @param {CoverImage} cover - base64 encoded cover image
    * @returns {Promise<HttpResponse<CoverUploaded>>}
    */
-  uploadCover(id: string, cover: Readable): Promise<HttpResponse<CoverUploaded>> {
+  uploadCover(id: string, cover: CoverImage): Promise<HttpResponse<CoverUploaded>> {
     const endpoint = `product/UploadCoverImage`;
     const url = Uri.from(undefined, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
     const multiparts: Multipart[] = [
       { name: 'id', data: id?.trim() },
-      { name: 'coverImage', fileStream: cover },
+      { name: 'coverImage', fileStream: cover.image, fileName: cover.fileName },
     ];
 
     return this.request(url.value, { method: 'POST', multiparts });
@@ -142,6 +148,12 @@ export class Folder extends ApiResource {
 }
 
 export class File extends ApiResource {
+  /**
+   * Download a Spark file from a protected URL.
+   * @param {string} url - Spark URL.
+   * @returns {Promise<HttpResponse>} - File should be a binary stream available
+   * for reading via `HttpResponse.buffer`.
+   */
   download(url: string): Promise<HttpResponse> {
     return this.request(url);
   }
@@ -167,8 +179,10 @@ interface CreateParams {
   launchDate?: number | string | Date;
   startDate?: number | string | Date;
   status?: string;
-  cover?: Readable;
+  cover?: CoverImage;
 }
+
+type CoverImage = { image: Readable; fileName?: string };
 
 interface SearchParams {
   id?: string;

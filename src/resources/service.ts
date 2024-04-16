@@ -7,8 +7,10 @@ import { SPARK_SDK } from '../constants';
 import { HttpResponse, Multipart, getRetryTimeout } from '../http';
 import Utils, { StringUtils, DateUtils } from '../utils';
 
-import { ApiResource, ApiResponse, Uri, UriParams } from './base';
 import { BatchService } from './batch';
+import { ApiResource, ApiResponse, Uri, UriParams } from './base';
+import { VersionListed, GetSwaggerParams, GetVersionsParams, GetSchemaParams, GetMetadataParams } from './types';
+import { DownloadParams, RecompileParams, CompileParams, CreateParams, PublishParams, GetStatusParams } from './types';
 import { ImpEx, ExportResult, ImportResult } from './impex';
 import { History } from './history';
 
@@ -21,63 +23,44 @@ export class Service extends ApiResource {
     return new History(this.config);
   }
 
-  async create(uri: string | Pick<UriParams, 'folder' | 'service'>, params: CreateBodyParams) {
-    const { folder, service } = Uri.toParams(uri);
-    const upload = await this.upload(uri, params);
-    const {
-      nodegen_compilation_jobid: jobId,
-      engine_file_documentid: engineId,
-      original_file_documentid: fileId,
-    } = upload.data.response_data;
+  get compilation() {
+    return new Compilation(this.config);
+  }
 
-    const status = await this.getCompilationStatus({ folder: folder!, service: service!, jobId });
+  /**
+   * Create a new service by uploading a file and publishing it.
+   * @param {CreateParams} params - the service creation parameters
+   * @returns a summary of the upload, compilation, and publication process.
+   */
+  async create(params: CreateParams) {
+    const { upload, compilation } = await this.compile(params);
+    const { engine_file_documentid: engineId, original_file_documentid: fileId } = upload.response_data;
 
-    return this.publish({ folder, service, fileId, engineId, ...params }).then((response) => {
-      return { upload: upload.data, compilation: status.data, publication: response.data };
+    return this.publish({ fileId, engineId, ...params }).then((response) => {
+      return { upload, compilation, publication: response.data };
     });
   }
 
-  upload(uri: string | Pick<UriParams, 'folder' | 'service'>, params: UploadBodyParams) {
-    const url = Uri.from(Uri.toParams(uri), { base: this.config.baseUrl.full, endpoint: 'upload' });
-    const [startDate, endDate] = DateUtils.parse(params.startDate, params.endDate);
-    const metadata = {
-      request_data: {
-        version_difference: params.versioning ?? 'minor',
-        effective_start_date: startDate.toISOString(),
-        effective_end_date: endDate.toISOString(),
-      },
-    };
-    const multiparts: Multipart[] = [
-      { name: 'engineUploadRequestEntity', data: metadata },
-      { name: 'serviceFile', fileStream: params.file },
-    ];
+  /**
+   * Compile a service after uploading it.
+   * @param {CreateParams} params - the service creation parameters
+   * @returns a summary of the upload, compilation, and publication process.
+   */
+  async compile(params: CompileParams) {
+    const compilation = this.compilation;
+    const upload = await compilation.initiate(params);
+    const { nodegen_compilation_jobid: jobId } = upload.data.response_data;
 
-    return this.request<ServiceUploaded>(url.value, { method: 'POST', multiparts });
+    const status = await compilation.getStatus({ jobId, ...params });
+    return { upload: upload.data, compilation: status.data };
   }
 
-  async getCompilationStatus(uri: CompilationStatusUriParams) {
-    const { jobId, maxRetries = 20, ...params } = Uri.toParams(uri);
-    const url = Uri.from(params, { base: this.config.baseUrl.full, endpoint: `getcompilationprogess/${jobId}` });
-
-    let retries = 0;
-    let response = await this.request<CompilationStatus>(url.value);
-    do {
-      const { progress } = response.data.response_data;
-      if (progress == 100) return response;
-
-      this.logger.log(`waiting for compilation job to complete - ${progress || 0}%`);
-      await new Promise((resolve) => setTimeout(resolve, getRetryTimeout(retries, 3)));
-
-      retries++;
-      response = await this.request<CompilationStatus>(url.value);
-    } while (response.data.response_data.progress < 100 && retries < maxRetries);
-
-    if (response.data.response_data.status === 'Success') return response;
-
-    throw SparkError.sdk({ message: 'compilation job status check timed out', cause: response });
-  }
-
-  publish(params: PublishUriParams) {
+  /**
+   * Publish a service after uploading and compiling it.
+   * @param {PublishParams} params - the publication parameters
+   * @returns {Promise<HttpResponse<ServicePublished>>} - the publication response
+   */
+  async publish(params: PublishParams): Promise<HttpResponse<ServicePublished>> {
     const { folder, service } = params;
     const [startDate, endDate] = DateUtils.parse(params.startDate, params.endDate);
     const url = Uri.from({ folder, service }, { base: this.config.baseUrl.full, endpoint: 'publish' });
@@ -93,16 +76,19 @@ export class Service extends ApiResource {
       },
     };
 
-    return this.request<ServicePublished>(url.value, { method: 'POST', body });
+    return this.request<ServicePublished>(url.value, { method: 'POST', body }).then((response) => {
+      this.logger.log(`service published with version id <${response.data.response_data.version_id}>`);
+      return response;
+    });
   }
 
-  execute(uri: string | Omit<UriParams, 'version'>, params: ExecBodyParams = {}) {
+  execute(uri: string | Omit<UriParams, 'version'>, params: ExecuteParams = {}) {
     const url = Uri.from(Uri.toParams(uri), { base: this.config.baseUrl.full, endpoint: 'execute' });
 
     const body = ((
-      { data = {}, inputs: initialInputs, raw }: ExecBodyParams,
+      { data = {}, inputs: initialInputs, raw }: ExecuteParams,
       defaultValues: Record<string, string>,
-    ): ExecBody => {
+    ): ExecuteBody => {
       const metadata = {
         service_uri: data?.serviceUri,
         service_id: data?.serviceId,
@@ -142,7 +128,14 @@ export class Service extends ApiResource {
     return this.request<ServiceExecuted>(url.value, { method: 'POST', body });
   }
 
-  getSchema(uri: string | Pick<UriParams, 'folder' | 'service'>): Promise<HttpResponse> {
+  /**
+   * Get the schema for a service.
+   * @param {string | GetSchemaParams} uri - how to locate the service
+   * @returns {Promise<HttpResponse>} - the service schema.
+   */
+  getSchema(uri: string): Promise<HttpResponse>;
+  getSchema(params: GetSchemaParams): Promise<HttpResponse>;
+  getSchema(uri: string | GetSchemaParams): Promise<HttpResponse> {
     const { folder, service } = Uri.toParams(uri);
     const endpoint = `product/${folder}/engines/get/${service}`;
     const url = Uri.from(undefined, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
@@ -150,13 +143,27 @@ export class Service extends ApiResource {
     return this.request(url.value);
   }
 
-  getMetadata(uri: string | Omit<UriParams, 'version'>): Promise<HttpResponse> {
+  /**
+   * Get the metadata for a service.
+   * @param {string | GetMetadataParams} uri - how to locate the service
+   * @returns {Promise<HttpResponse<MetadataFound>>} - the service metadata.
+   */
+  getMetadata(uri: string): Promise<HttpResponse<MetadataFound>>;
+  getMetadata(params: GetMetadataParams): Promise<HttpResponse<MetadataFound>>;
+  getMetadata(uri: string | GetMetadataParams): Promise<HttpResponse<MetadataFound>> {
     const url = Uri.from(Uri.toParams(uri), { base: this.config.baseUrl.full, endpoint: 'metadata' });
 
     return this.request(url.value);
   }
 
-  getVersions(uri: string | Pick<UriParams, 'folder' | 'service'>): Promise<HttpResponse> {
+  /**
+   * Get the list of versions for a service.
+   * @param {string | GetVersionsParams} uri - how to locate the service
+   * @returns {Promise<HttpResponse<VersionListed>>} - the list of versions
+   */
+  getVersions(uri: string): Promise<HttpResponse<VersionListed>>;
+  getVersions(params: GetVersionsParams): Promise<HttpResponse<VersionListed>>;
+  getVersions(uri: string | GetVersionsParams): Promise<HttpResponse<VersionListed>> {
     const { folder, service } = Uri.toParams(uri);
     const endpoint = `product/${folder}/engines/getversions/${service}`;
     const url = Uri.from(undefined, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
@@ -164,7 +171,15 @@ export class Service extends ApiResource {
     return this.request(url.value);
   }
 
-  getSwagger(uri: string | SwaggerUriParams): Promise<HttpResponse> {
+  /**
+   * Get the Swagger documentation for a service.
+   * @param {string | GetSwaggerParams} uri - how to locate the service
+   * @returns {Promise<HttpResponse>} - the Swagger documentation as binary data
+   * via the `HttpResponse.buffer` property.
+   */
+  getSwagger(uri: string): Promise<HttpResponse>;
+  getSwagger(params: GetSwaggerParams): Promise<HttpResponse>;
+  getSwagger(uri: string | GetSwaggerParams): Promise<HttpResponse> {
     const { folder, service, versionId = '', downloadable = false, category = 'All' } = Uri.toParams(uri);
     const endpoint = `downloadswagger/${category}/${downloadable}/${versionId}`;
     const url = Uri.from({ folder, service }, { base: this.config.baseUrl.full, endpoint });
@@ -172,13 +187,13 @@ export class Service extends ApiResource {
     return this.request(url.value);
   }
 
-  validate(uri: string | Omit<UriParams, 'version'>, params: ExecBodyParams = {}): Promise<HttpResponse> {
+  validate(uri: string | Omit<UriParams, 'version'>, params: ExecuteParams = {}): Promise<HttpResponse> {
     const url = Uri.from(Uri.toParams(uri), { base: this.config.baseUrl.full, endpoint: 'validation' });
 
     const body = ((
-      { data = {}, inputs: initialInputs, raw }: ExecBodyParams,
+      { data = {}, inputs: initialInputs, raw }: ExecuteParams,
       defaultValues: Record<string, string>,
-    ): ExecBody => {
+    ): ExecuteBody => {
       const metadata = {
         service_uri: data?.serviceUri,
         service_id: data?.serviceId,
@@ -189,7 +204,7 @@ export class Service extends ApiResource {
         correlation_id: data?.correlationId,
         call_purpose: data?.callPurpose ?? defaultValues.callPurpose,
         array_outputs: Array.isArray(data?.arrayOutputs) ? data.arrayOutputs.join(',') : data?.arrayOutputs,
-        compiler_type: data?.compilerType ?? defaultValues.compilterType,
+        compiler_type: data?.compilerType ?? defaultValues.compilerType,
         debug_solve: data?.debugSolve,
         excel_file: data?.excelFile,
         requested_output: Array.isArray(data?.requestedOutput) ? data.requestedOutput.join(',') : data?.requestedOutput,
@@ -218,7 +233,14 @@ export class Service extends ApiResource {
     return this.request(url.value, { method: 'POST', body });
   }
 
-  download(uri: string | DownloadUriParams): Promise<HttpResponse> {
+  /**
+   * Download the original (Excel) or configured file.
+   * @param {string | DownloadParams} uri - how to locate the service
+   * @returns {Promise<HttpResponse>} - the file as binary data via the `HttpResponse.buffer` property.
+   */
+  download(uri: string): Promise<HttpResponse>;
+  download(params: DownloadParams): Promise<HttpResponse>;
+  download(uri: string | DownloadParams): Promise<HttpResponse> {
     const { folder, service, version = '', filename = '', type = 'original' } = Uri.toParams(uri);
     const endpoint = `product/${folder}/engines/${service}/download/${version}`;
     const url = Uri.from(undefined, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
@@ -227,7 +249,14 @@ export class Service extends ApiResource {
     return this.request(url.value, { params });
   }
 
-  recompile(uri: string | RecompileUriParams): Promise<HttpResponse> {
+  /**
+   * Recompile a service using a specific compiler version.
+   * @param {string | RecompileParams} uri - how to locate the service
+   * @returns {Promise<HttpResponse<ServiceRecompiled>>} - the recompilation status.
+   */
+  recompile(uri: string): Promise<HttpResponse<ServiceRecompiled>>;
+  recompile(params: RecompileParams): Promise<HttpResponse<ServiceRecompiled>>;
+  recompile(uri: string | RecompileParams): Promise<HttpResponse<ServiceRecompiled>> {
     const { folder, service, versionId, releaseNotes, ...params } = Uri.toParams(uri);
     const url = Uri.from({ folder, service }, { base: this.config.baseUrl.full, endpoint: 'recompileNodgen' });
     const [startDate, endDate] = DateUtils.parse(params.startDate, params.endDate);
@@ -245,7 +274,7 @@ export class Service extends ApiResource {
     return this.request(url.value, { method: 'POST', body: { request_data: data } });
   }
 
-  async export(uri: string | ExportUriParams): Promise<HttpResponse<ExportResult>[]> {
+  async export(uri: string | ExportParams): Promise<HttpResponse<ExportResult>[]> {
     const impex = ImpEx.only(this.config);
     const { folder, service, version, versionId, retries = this.config.maxRetries + 2, ...params } = Uri.toParams(uri);
     const serviceUri = Uri.encode({ folder, service, version }, false);
@@ -276,7 +305,7 @@ export class Service extends ApiResource {
     return downloads;
   }
 
-  async import(uri: ImportUriParams): Promise<HttpResponse<ImportResult>> {
+  async import(uri: ImportParams): Promise<HttpResponse<ImportResult>> {
     const config = uri.config ?? this.config;
     const impex = ImpEx.only(config);
     const { folder, service, retries = config.maxRetries + 3, ...params } = Uri.toParams(uri);
@@ -298,14 +327,80 @@ export class Service extends ApiResource {
   }
 }
 
-interface ExportUriParams extends Pick<UriParams, 'folder' | 'service' | 'version' | 'versionId'> {
+class Compilation extends ApiResource {
+  /**
+   * Upload a service file and initiate the compilation process.
+   * @param {CompileParams} params - the compilation parameters
+   * @returns {Promise<HttpResponse<ServiceCompiled>>} - the upload response
+   */
+  async initiate(params: CompileParams): Promise<HttpResponse<ServiceCompiled>> {
+    const url = Uri.from(params, { base: this.config.baseUrl.full, endpoint: 'upload' });
+    const [startDate, endDate] = DateUtils.parse(params.startDate, params.endDate);
+    const metadata = {
+      request_data: {
+        version_difference: params.versioning ?? 'minor',
+        effective_start_date: startDate.toISOString(),
+        effective_end_date: endDate.toISOString(),
+      },
+    };
+    const multiparts: Multipart[] = [
+      { name: 'engineUploadRequestEntity', data: metadata },
+      { name: 'serviceFile', fileStream: params.file, fileName: params.fileName ?? `${params.service}.xlsx` },
+    ];
+
+    return this.request<ServiceCompiled>(url.value, { method: 'POST', multiparts }).then((response) => {
+      this.logger.log(`service file uploaded <${response.data.response_data.original_file_documentid}>`);
+      return response;
+    });
+  }
+
+  /**
+   * Get the status of a compilation job.
+   * @param {GetStatusParams} params - how to locate the compilation job.
+   * @returns {Promise<HttpResponse<CompilationStatus>>} - the compilation status.
+   */
+  async getStatus(params: GetStatusParams): Promise<HttpResponse<CompilationStatus>> {
+    const { jobId, maxRetries = this.config.maxRetries, retryInterval = 2 } = params;
+    const url = Uri.from(params, { base: this.config.baseUrl.full, endpoint: `getcompilationprogess/${jobId}` });
+
+    let retries = 0;
+    let response = await this.request<CompilationStatus>(url.value);
+    do {
+      const { progress } = response.data.response_data;
+      if (progress == 100) return response;
+
+      this.logger.log(`waiting for compilation job to complete - ${progress || 0}%`);
+      await new Promise((resolve) => setTimeout(resolve, getRetryTimeout(retries, retryInterval)));
+
+      retries++;
+      response = await this.request<CompilationStatus>(url.value);
+    } while (response.data.response_data.progress < 100 && retries < maxRetries);
+
+    if (response.data.response_data.status === 'Success') return response;
+
+    const error = SparkError.sdk({ message: `compilation job status check timed out`, cause: response });
+    this.logger.error(error.message);
+    throw error;
+  }
+}
+
+type CompilerType = 'Neuron' | 'Type3' | 'Type2' | 'Type1' | 'Xconnector';
+
+type ValidationType = 'default_values' | 'dynamic';
+
+interface ServiceApiResponse<TData, TMeta = Record<string, any>> extends Pick<ApiResponse, 'status' | 'error'> {
+  response_data: TData;
+  response_meta: TMeta;
+}
+
+interface ExportParams extends Pick<UriParams, 'folder' | 'service' | 'version' | 'versionId'> {
   filters?: { file?: 'migrate' | 'onpremises'; version?: 'latest' | 'all' };
   sourceSystem?: string;
   correlationId?: string;
   retries?: number;
 }
 
-interface ImportUriParams extends Pick<UriParams, 'folder' | 'service'> {
+interface ImportParams extends Pick<UriParams, 'folder' | 'service'> {
   file: Readable;
   ifPresent?: 'abort' | 'replace' | 'add_version';
   sourceSystem?: string;
@@ -324,27 +419,7 @@ interface MigrateUriParams extends Pick<UriParams, 'folder' | 'service' | 'versi
   retries?: number;
 }
 
-interface RecompileUriParams extends Pick<UriParams, 'folder' | 'service' | 'versionId'> {
-  upgrade?: 'major' | 'minor' | 'patch';
-  tags?: string | string[];
-  compiler?: string;
-  releaseNotes?: string;
-  label?: string;
-  startDate?: number | string | Date;
-  endDate?: number | string | Date;
-}
-
-interface DownloadUriParams extends Pick<UriParams, 'folder' | 'service' | 'version'> {
-  filename?: string;
-  type?: 'original' | 'configured';
-}
-
-interface SwaggerUriParams extends Pick<UriParams, 'folder' | 'service' | 'versionId'> {
-  category?: string;
-  downloadable?: boolean;
-}
-
-interface ExecData {
+interface ExecuteData {
   // Input definitions for calculation
   inputs?: Record<string, any> | null;
 
@@ -362,26 +437,24 @@ interface ExecData {
 
   // Parameters to control the response outputs
   arrayOutputs?: undefined | string | string[];
-  compilerType?: 'Neuron' | 'Type3' | 'Type2' | 'Type1' | 'Xconnector';
+  compilerType?: CompilerType;
   debugSolve?: boolean;
   excelFile?: boolean;
   requestedOutput?: undefined | string | string[];
   requestedOutputRegex?: string;
   responseDataInputs?: boolean;
   serviceCategory?: string;
-  validationType?: 'default_values' | 'dynamic';
+  validationType?: ValidationType;
 }
 
-interface ExecBodyParams {
-  readonly data?: ExecData;
+interface ExecuteParams {
+  readonly data?: ExecuteData;
   readonly inputs?: Record<string, any>;
   readonly raw?: string;
 }
 
-type ExecBody = {
-  request_data: {
-    inputs: Record<string, any> | null;
-  };
+type ExecuteBody = {
+  request_data: { inputs: Record<string, any> | null };
   request_meta: {
     service_uri?: string;
     service_id?: string;
@@ -399,23 +472,11 @@ type ExecBody = {
     requested_output_regex?: string;
     response_data_inputs?: boolean;
     service_category?: string;
-    validation_type?: 'default_values' | 'dynamic';
+    validation_type?: ValidationType;
   };
 };
 
-interface UploadBodyParams {
-  file: Readable;
-  versioning?: 'major' | 'minor' | 'patch';
-  startDate?: string | number | Date;
-  endDate?: string | number | Date;
-}
-
-interface ServiceApiResponse<TData, TMeta = Record<string, any>> extends Pick<ApiResponse, 'status' | 'error'> {
-  response_data: TData;
-  response_meta: TMeta;
-}
-
-type ServiceUploaded = ServiceApiResponse<{
+type ServiceCompiled = ServiceApiResponse<{
   lines_of_code: number;
   hours_saved: number;
   nodegen_compilation_jobid: string;
@@ -445,36 +506,18 @@ type ServiceExecuted = ServiceApiResponse<{
   service_chain: any[] | null;
 }>;
 
+type MetadataFound = ServiceExecuted;
+
 type CompilationStatus = ServiceApiResponse<{
   status: string;
   last_error_message: string;
   progress: number;
 }>;
 
-interface CompilationStatusUriParams extends Pick<UriParams, 'folder' | 'service'> {
-  readonly folder: string;
-  readonly service: string;
-  readonly jobId: string;
-  /** Defaults to `Config.maxRetries` */
-  readonly maxRetries?: number;
-}
+type ServicePublished = ServiceApiResponse<{ version_id: string }>;
 
-interface PublishUriParams extends Pick<UriParams, 'folder' | 'service'> {
-  fileId: string;
-  engineId: string;
-  draftName?: string;
-  startDate?: string | number | Date;
-  endDate?: string | number | Date;
-  versioning?: 'major' | 'minor' | 'patch';
-  trackUser?: boolean;
-}
-
-type ServicePublished = ServiceApiResponse<{
-  version_id: string;
+type ServiceRecompiled = ServiceApiResponse<{
+  versionId: string;
+  revision: string;
+  jobId: string;
 }>;
-
-interface CreateBodyParams extends UploadBodyParams {
-  draftName?: string;
-  versioning?: 'major' | 'minor' | 'patch';
-  trackUser?: boolean;
-}

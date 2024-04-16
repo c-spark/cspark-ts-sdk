@@ -11,12 +11,14 @@ export class History extends ApiResource {
   /**
    * Rehydrate the executed model into the original excel file.
    * @param {string | RehydrateUriParams} uri - how to locate the service
-   * @param {string} callId - optional callId to rehydrate if not provided in the uri
+   * @param {string} callId - optional callId to rehydrate if not provided in the params.
    * @returns {Promise<HttpResponse<LogRehydrated>>} - the rehydrated log
    *
    * @throws {SparkError} - if the callId is missing or the rehydration fails
    * to produce a downloadable Excel file.
    */
+  async rehydrate(uri: string, callId: string): Promise<HttpResponse<LogRehydrated>>;
+  async rehydrate(params: RehydrateUriParams): Promise<HttpResponse<LogRehydrated>>;
   async rehydrate(uri: string | RehydrateUriParams, callId?: string): Promise<HttpResponse<LogRehydrated>> {
     const { folder, service, ...params } = Uri.toParams(uri);
     callId = (callId ?? params?.callId)?.trim();
@@ -48,6 +50,8 @@ export class History extends ApiResource {
    *
    * @throws {SparkError} - if the download job fails to produce a downloadable file.
    */
+  async download(uri: string, type: DownloadFileType): Promise<HttpResponse<LogStatus>>;
+  async download(params: DownloadUriParams): Promise<HttpResponse<LogStatus>>;
   async download(uri: string | DownloadUriParams, type?: DownloadFileType): Promise<HttpResponse<LogStatus>> {
     const { folder, service, maxRetries = this.config.maxRetries, retryInterval = 3, ...params } = Uri.toParams(uri);
     type = (type ?? params?.type ?? 'json').toLowerCase() as DownloadFileType;
@@ -119,6 +123,8 @@ class LogDownload extends ApiResource {
    * @returns {Promise<HttpResponse<LogStatus>>} - the download status and URL
    * @throws {SparkError} - if the download job status check times out.
    */
+  async getStatus(uri: string, type: DownloadFileType): Promise<HttpResponse<LogStatus>>;
+  async getStatus(params: GetStatusUriParams): Promise<HttpResponse<LogStatus>>;
   async getStatus(uri: string | GetStatusUriParams, type?: DownloadFileType): Promise<HttpResponse<LogStatus>> {
     const { jobId, maxRetries = this.config.maxRetries, retryInterval = 3, ...params } = Uri.toParams(uri);
     type = (type ?? params?.type ?? 'json').toLowerCase() as DownloadFileType;

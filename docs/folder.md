@@ -94,7 +94,9 @@ will create a folder with some additional information.
 | _startDate_       | `string \| number \| Date` | The start date (format: `YYYY-MM-DD[THH:MM:SS.SSSZ]`).  |
 | _launchState_     | `string \| number \| Date` | The launch date (format: `YYYY-MM-DD[THH:MM:SS.SSSZ]`). |
 | _status_          | `string`                   | The status of the folder.                               |
-| _cover_           | `Readable`                 | The cover image of the folder (binary file)             |
+| _cover_           | `CoverImage`               | The cover image of the folder.                          |
+| _cover.image_     | `Readable`                 | The image as a binary file.                             |
+| _cover.fileName_  | `string`                   | The name of the image file (including the extension).   |
 
 ```ts
 await spark.folder.create({
