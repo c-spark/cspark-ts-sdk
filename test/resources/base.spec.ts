@@ -51,8 +51,8 @@ describe('Uri', () => {
       'https://excel.test.coherent.global/tenant-name/api/v3/public/proxy/custom-endpoint',
     );
 
-    expect(Uri.from({ proxy: '/custom-endpoint/', public: true }, { base: BASE_URL }).value).toBe(
-      'https://excel.test.coherent.global/tenant-name/api/v3/public/proxy/custom-endpoint/',
+    expect(Uri.from({ proxy: '/custom-endpoint///', public: true }, { base: BASE_URL }).value).toBe(
+      'https://excel.test.coherent.global/tenant-name/api/v3/public/proxy/custom-endpoint',
     );
   });
 

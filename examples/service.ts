@@ -1,16 +1,35 @@
 import { createWriteStream, createReadStream } from 'fs';
 import { type SparkClient } from '@cspark/sdk';
 
-function getMetadata(spark: SparkClient) {
+function create(spark: SparkClient) {
+  const file = createReadStream('my-service.xlsx');
+
   spark.service
-    .getMetadata('my-folder/my-service')
-    .then((response) => console.log(response.data))
+    .create({
+      file: file,
+      folder: 'my-folder',
+      service: 'my-service',
+      fileName: 'my-service.xlsx',
+      trackUser: true,
+      maxRetries: 10,
+      retryInterval: 3,
+    })
+    .then((response) => console.log(JSON.stringify(response.publication, undefined, 2)))
     .catch(console.error);
 }
 
-function getSchema(spark: SparkClient) {
+function execute(spark: SparkClient) {
+  const data = { inputs: { value: 'Hello, Spark SDK' }, versionId: 'uuid' };
   spark.service
-    .getSchema('my-folder/my-service')
+    .execute('my-folder/my-service', { data })
+    .then((response) => console.log(response.data))
+    .catch((err) => console.error(JSON.stringify(err.cause, null, 2)));
+}
+
+export function executeAll(spark: SparkClient) {
+  const batch = [{ value: 1 }, { value: 2 }, { value: 3 }];
+  spark.service.batch
+    .execute({ folder: 'my-folder', service: 'my-service' }, { inputs: batch })
     .then((response) => console.log(response.data))
     .catch(console.error);
 }
@@ -22,9 +41,23 @@ function getVersions(spark: SparkClient) {
     .catch(console.error);
 }
 
+function getSchema(spark: SparkClient) {
+  spark.service
+    .getSchema('my-folder/my-service')
+    .then((response) => console.log(response.data))
+    .catch(console.error);
+}
+
 function getSwagger(spark: SparkClient) {
   spark.service
     .getSwagger('my-folder/my-service')
+    .then((response) => console.log(response.data))
+    .catch(console.error);
+}
+
+function getMetadata(spark: SparkClient) {
+  spark.service
+    .getMetadata('my-folder/my-service')
     .then((response) => console.log(response.data))
     .catch(console.error);
 }
@@ -83,23 +116,8 @@ function migrate(spark: SparkClient) {
     .catch(console.error);
 }
 
-function execute(spark: SparkClient) {
-  const data = { inputs: { value: 'Hello, Spark SDK' }, versionId: 'uuid' };
-  spark.service
-    .execute('my-folder/my-service', { data })
-    .then((response) => console.log(response.data))
-    .catch((err) => console.error(JSON.stringify(err.cause, null, 2)));
-}
-
-export function batchSync(spark: SparkClient) {
-  const batch = [{ value: 1 }, { value: 2 }, { value: 3 }];
-  spark.service.batch
-    .execute({ folder: 'my-folder', service: 'my-service' }, { inputs: batch })
-    .then((response) => console.log(response.data))
-    .catch(console.error);
-}
-
 export default {
+  create,
   getSchema,
   getMetadata,
   getVersions,
@@ -111,5 +129,5 @@ export default {
   import: importFromZip,
   migrate,
   execute,
-  batchSync,
+  executeAll,
 };

@@ -5,7 +5,7 @@ import { SparkError } from '../error';
 import { Logger } from '../logger';
 import { userAgentHeader, sdkUaHeader } from '../version';
 import { _fetch, _download, HttpOptions, HttpResponse } from '../http';
-import Utils, { StringUtils, Maybe } from '../utils';
+import Utils, { StringUtils, Maybe, sanitizeUri } from '../utils';
 
 /**
  * Base class for all API resources.
@@ -129,7 +129,7 @@ export class Uri {
     if (isPublic) path += `/public`;
     if (folder && service) path += `/folders/${folder}/services/${service}`;
     else if (versionId) path += `/version/${versionId}`;
-    else if (proxy) path += `/proxy/${proxy.startsWith('/') ? proxy.slice(1) : proxy}`;
+    else if (proxy) path += `/proxy/${sanitizeUri(proxy)}`;
 
     if (endpoint && !proxy) path += `/${endpoint}`;
     try {

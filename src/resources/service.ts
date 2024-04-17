@@ -15,6 +15,10 @@ import { ImpEx, ExportResult, ImportResult } from './impex';
 import { History } from './history';
 
 export class Service extends ApiResource {
+  get compilation() {
+    return new Compilation(this.config);
+  }
+
   get batch() {
     return new BatchService(this.config);
   }
@@ -23,14 +27,11 @@ export class Service extends ApiResource {
     return new History(this.config);
   }
 
-  get compilation() {
-    return new Compilation(this.config);
-  }
-
   /**
    * Create a new service by uploading a file and publishing it.
    * @param {CreateParams} params - the service creation parameters
-   * @returns a summary of the upload, compilation, and publication process.
+   * @returns a summary of the upload, compilation, and publication process
+   * @throws {SparkError} - if the service creation fails
    */
   async create(params: CreateParams) {
     const { upload, compilation } = await this.compile(params);
@@ -44,7 +45,7 @@ export class Service extends ApiResource {
   /**
    * Compile a service after uploading it.
    * @param {CreateParams} params - the service creation parameters
-   * @returns a summary of the upload, compilation, and publication process.
+   * @returns a summary of the upload, compilation, and publication process
    */
   async compile(params: CompileParams) {
     const compilation = this.compilation;
@@ -82,56 +83,56 @@ export class Service extends ApiResource {
     });
   }
 
-  execute(uri: string | Omit<UriParams, 'version'>, params: ExecuteParams = {}) {
-    const url = Uri.from(Uri.toParams(uri), { base: this.config.baseUrl.full, endpoint: 'execute' });
+  /**
+   * Execute a service with the given inputs.
+   * @param {string | UriParams} uri - how to locate the service
+   * @param {ExecuteParams<Inputs>} params - optionally the execution parameters (inputs, metadata, etc.)
+   * @returns {Promise<HttpResponse<ServiceExecuted<Outputs>>>} - the service execution response
+   * @throws {SparkError} - if the service execution fails
+   */
+  execute<Inputs, Outputs>(
+    uri: string,
+    params?: ExecuteParams<Inputs>,
+  ): Promise<HttpResponse<ServiceExecuted<Outputs>>>;
+  execute<Inputs, Outputs>(
+    uri: UriParams,
+    params?: ExecuteParams<Inputs>,
+  ): Promise<HttpResponse<ServiceExecuted<Outputs>>>;
+  execute<Inputs, Outputs>(uri: string | UriParams, params?: ExecuteParams<Inputs>) {
+    uri = Uri.toParams(uri);
+    const url = Uri.from(uri, { base: this.config.baseUrl.full, endpoint: 'execute' });
+    const body = this.#buildExecuteBody(uri, params);
 
-    const body = ((
-      { data = {}, inputs: initialInputs, raw }: ExecuteParams,
-      defaultValues: Record<string, string>,
-    ): ExecuteBody => {
-      const metadata = {
-        service_uri: data?.serviceUri,
-        service_id: data?.serviceId,
-        version: data?.version,
-        version_id: data?.versionId,
-        transaction_date: data?.transactionDate,
-        source_system: data?.sourceSystem,
-        correlation_id: data?.correlationId,
-        call_purpose: data?.callPurpose ?? defaultValues.callPurpose,
-        array_outputs: Array.isArray(data?.arrayOutputs) ? data.arrayOutputs.join(',') : data?.arrayOutputs,
-        compiler_type: data?.compilerType ?? defaultValues.compilterType,
-        debug_solve: data?.debugSolve,
-        excel_file: data?.excelFile,
-        requested_output: Array.isArray(data?.requestedOutput) ? data.requestedOutput.join(',') : data?.requestedOutput,
-        requested_output_regex: data?.requestedOutputRegex,
-        response_data_inputs: data?.responseDataInputs,
-        service_category: data?.serviceCategory,
-        validation_type: data?.validationType,
-      };
+    return this.request<ServiceExecuted<Outputs>>(url.value, { method: 'POST', body });
+  }
 
-      const inputs = data?.inputs || initialInputs;
-      if (!Utils.isObject(inputs) && StringUtils.isNotEmpty(raw)) {
-        const parsed = Serializable.deserialize(raw as string, () => {
-          this.logger.warn('failed to parse the raw input as JSON; exec will use default inputs instead.');
-          return { request_data: { inputs: {} }, request_meta: metadata };
-        });
+  /**
+   * Validate the inputs for a service.
+   * @param {string | UriParams} uri - how to locate the service
+   * @param {ExecuteParams<Inputs>} params - optionally the validation parameters (inputs, metadata, etc.)
+   * @returns {Promise<HttpResponse<ServiceExecuted<Outputs>>>} - the validation response
+   * @throws {SparkError} - if the validation fails
+   */
+  validate<Inputs, Outputs>(
+    uri: string,
+    params?: ExecuteParams<Inputs>,
+  ): Promise<HttpResponse<ServiceExecuted<Outputs>>>;
+  validate<Inputs, Outputs>(
+    uri: UriParams,
+    params?: ExecuteParams<Inputs>,
+  ): Promise<HttpResponse<ServiceExecuted<Outputs>>>;
+  validate<Inputs, Outputs>(uri: string | UriParams, params?: ExecuteParams<Inputs>) {
+    uri = Uri.toParams(uri);
+    const url = Uri.from(uri, { base: this.config.baseUrl.full, endpoint: 'validation' });
+    const body = this.#buildExecuteBody(uri, params);
 
-        parsed.request_meta = Utils.isObject(parsed?.request_meta)
-          ? { ...defaultValues, ...parsed.request_meta }
-          : metadata;
-        return parsed;
-      } else {
-        return { request_data: { inputs: inputs ?? {} }, request_meta: metadata };
-      }
-    })(params, { callPurpose: SPARK_SDK, compilerType: 'Neuron' });
-
-    return this.request<ServiceExecuted>(url.value, { method: 'POST', body });
+    return this.request<ServiceExecuted<Outputs>>(url.value, { method: 'POST', body });
   }
 
   /**
    * Get the schema for a service.
    * @param {string | GetSchemaParams} uri - how to locate the service
-   * @returns {Promise<HttpResponse>} - the service schema.
+   * @returns {Promise<HttpResponse>} - the service schema
    */
   getSchema(uri: string): Promise<HttpResponse>;
   getSchema(params: GetSchemaParams): Promise<HttpResponse>;
@@ -185,52 +186,6 @@ export class Service extends ApiResource {
     const url = Uri.from({ folder, service }, { base: this.config.baseUrl.full, endpoint });
 
     return this.request(url.value);
-  }
-
-  validate(uri: string | Omit<UriParams, 'version'>, params: ExecuteParams = {}): Promise<HttpResponse> {
-    const url = Uri.from(Uri.toParams(uri), { base: this.config.baseUrl.full, endpoint: 'validation' });
-
-    const body = ((
-      { data = {}, inputs: initialInputs, raw }: ExecuteParams,
-      defaultValues: Record<string, string>,
-    ): ExecuteBody => {
-      const metadata = {
-        service_uri: data?.serviceUri,
-        service_id: data?.serviceId,
-        version: data?.version,
-        version_id: data?.versionId,
-        transaction_date: data?.transactionDate,
-        source_system: data?.sourceSystem,
-        correlation_id: data?.correlationId,
-        call_purpose: data?.callPurpose ?? defaultValues.callPurpose,
-        array_outputs: Array.isArray(data?.arrayOutputs) ? data.arrayOutputs.join(',') : data?.arrayOutputs,
-        compiler_type: data?.compilerType ?? defaultValues.compilerType,
-        debug_solve: data?.debugSolve,
-        excel_file: data?.excelFile,
-        requested_output: Array.isArray(data?.requestedOutput) ? data.requestedOutput.join(',') : data?.requestedOutput,
-        requested_output_regex: data?.requestedOutputRegex,
-        response_data_inputs: data?.responseDataInputs,
-        service_category: data?.serviceCategory,
-        validation_type: data?.validationType,
-      };
-
-      const inputs = data?.inputs || initialInputs;
-      if (!Utils.isObject(inputs) && StringUtils.isNotEmpty(raw)) {
-        const parsed = Serializable.deserialize(raw as string, () => {
-          this.logger.warn('failed to parse the raw input as JSON', raw);
-          return { request_data: { inputs: {} }, request_meta: metadata };
-        });
-
-        parsed.request_meta = Utils.isObject(parsed?.request_meta)
-          ? { ...defaultValues, ...parsed.request_meta }
-          : metadata;
-        return parsed;
-      } else {
-        return { request_data: { inputs: inputs ?? {} }, request_meta: metadata };
-      }
-    })(params, { callPurpose: SPARK_SDK });
-
-    return this.request(url.value, { method: 'POST', body });
   }
 
   /**
@@ -324,6 +279,44 @@ export class Service extends ApiResource {
     const imported = await this.import({ ...params, file: exported[0].buffer });
 
     return { exports: exported, imports: imported };
+  }
+
+  #buildExecuteBody<T>(uri: UriParams, { data = {}, inputs: initialInputs, raw }: ExecuteParams<T> = {}): ExecuteBody {
+    const defaultValues = { callPurpose: SPARK_SDK, compilerType: 'Neuron', version: uri.version };
+    const metadata = {
+      service_uri: data?.serviceUri,
+      service_id: data?.serviceId ?? uri.serviceId,
+      version: data?.version ?? defaultValues.version,
+      version_id: data?.versionId ?? uri.versionId,
+      transaction_date: DateUtils.isDate(data?.activeSince) ? data.activeSince.toISOString() : undefined,
+      source_system: data?.sourceSystem,
+      correlation_id: data?.correlationId,
+      call_purpose: data?.callPurpose ?? defaultValues.callPurpose,
+      array_outputs: Array.isArray(data?.outputs) ? data.outputs.join(',') : data?.outputs,
+      compiler_type: data?.compilerType ?? defaultValues.compilerType,
+      debug_solve: data?.debugSolve,
+      excel_file: data?.downloadable,
+      requested_output: Array.isArray(data?.output) ? data.output.join(',') : data?.output,
+      requested_output_regex: data?.outputRegex,
+      response_data_inputs: data?.withInputs,
+      service_category: Array.isArray(data?.subservices) ? data.subservices.join(',') : data?.subservices,
+      validation_type: data?.validationType,
+    };
+
+    const inputs = data?.inputs || initialInputs;
+    if (!Utils.isObject(inputs) && StringUtils.isNotEmpty(raw)) {
+      const parsed = Serializable.deserialize(raw as string, () => {
+        this.logger.warn('failed to parse the raw input as JSON', raw);
+        return { request_data: { inputs: {} }, request_meta: metadata };
+      });
+
+      parsed.request_meta = Utils.isObject(parsed?.request_meta)
+        ? { ...defaultValues, ...parsed.request_meta }
+        : metadata;
+      return parsed;
+    } else {
+      return { request_data: { inputs: inputs ?? {} }, request_meta: metadata };
+    }
   }
 }
 
@@ -419,16 +412,16 @@ interface MigrateUriParams extends Pick<UriParams, 'folder' | 'service' | 'versi
   retries?: number;
 }
 
-interface ExecuteData {
+interface ExecuteData<Inputs = Record<string, any>> {
   // Input definitions for calculation
-  inputs?: Record<string, any> | null;
+  inputs?: Inputs | null;
 
   // Parameters to identify the correct service and version to use:
   serviceUri?: string;
   serviceId?: string;
   version?: string;
   versionId?: string;
-  transactionDate?: string;
+  activeSince?: string | number | Date;
 
   // These fields, if provided as part of the API request, are visible in the API Call History.
   sourceSystem?: string;
@@ -436,25 +429,25 @@ interface ExecuteData {
   callPurpose?: string;
 
   // Parameters to control the response outputs
-  arrayOutputs?: undefined | string | string[];
+  outputs?: undefined | string | string[];
   compilerType?: CompilerType;
   debugSolve?: boolean;
-  excelFile?: boolean;
-  requestedOutput?: undefined | string | string[];
-  requestedOutputRegex?: string;
-  responseDataInputs?: boolean;
-  serviceCategory?: string;
+  downloadable?: boolean;
+  output?: undefined | string | string[];
+  outputRegex?: string;
+  withInputs?: boolean;
+  subservices?: undefined | string | string[];
   validationType?: ValidationType;
 }
 
-interface ExecuteParams {
-  readonly data?: ExecuteData;
-  readonly inputs?: Record<string, any>;
+interface ExecuteParams<Inputs = Record<string, any>> {
+  readonly data?: ExecuteData<Inputs>;
+  readonly inputs?: Inputs;
   readonly raw?: string;
 }
 
-type ExecuteBody = {
-  request_data: { inputs: Record<string, any> | null };
+type ExecuteBody<Inputs = Record<string, any>> = {
+  request_data: { inputs: Inputs | null };
   request_meta: {
     service_uri?: string;
     service_id?: string;
@@ -491,19 +484,26 @@ type ServiceCompiled = ServiceApiResponse<{
   no_of_cellswithdata: number;
 }>;
 
-type ServiceExecuted = ServiceApiResponse<{
-  outputs: Record<string, any>;
-  warnings: any[] | null;
+type ServiceExecuted<Outputs = Record<string, any>> = ServiceApiResponse<{
+  outputs: Outputs;
+  warnings: Partial<{ source_path: string; message: string }>[] | null;
   errors:
-    | null
-    | {
+    | Partial<{
         error_category: string;
         error_type: string;
         additional_details: string;
         source_path: string;
         message: string;
-      }[];
-  service_chain: any[] | null;
+      }>[]
+    | null;
+  service_chain:
+    | Partial<{
+        service_name: string;
+        run_if: string;
+        requested_report: string;
+        requested_report_filename: string;
+      }>[]
+    | null;
 }>;
 
 type MetadataFound = ServiceExecuted;
