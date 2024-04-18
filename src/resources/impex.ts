@@ -7,6 +7,7 @@ import { SparkError } from '../error';
 import { SPARK_SDK } from '../constants';
 import { HttpResponse, Multipart, getRetryTimeout } from '../http';
 import { ApiResource, Uri, UriParams } from './base';
+import { UpgradeType, ExportFilters, IfEntityPresent } from './types';
 
 export class ImpEx {
   private constructor(readonly config: Config) {}
@@ -207,7 +208,7 @@ class Export extends ApiResource {
         this.logger.warn(`failed to download file <${file.file}>`, cause);
       }
     }
-    this.logger.log(`downloaded ${downloads.length} files from export job <${exported.id}>`);
+    this.logger.log(`downloaded ${downloads.length} file(s) from export job <${exported.id}>`);
     return downloads;
   }
 }
@@ -300,7 +301,7 @@ export class Wasm extends ApiResource {
 }
 
 function buildServiceMappings(
-  serviceUri: string | string[] | ServiceMapping | ServiceMapping[],
+  serviceUri: ImportDestination,
   upgradeType: UpgradeType = 'minor',
 ): ImportBody['inputs']['services_modify'] {
   if (StringUtils.isString(serviceUri)) {
@@ -325,7 +326,7 @@ function buildServiceMappings(
   throw SparkError.sdk({ message: 'invalid import service uri', cause: serviceUri });
 }
 
-type UpgradeType = 'major' | 'minor' | 'patch';
+export type ImportDestination = string | string[] | ServiceMapping | ServiceMapping[];
 
 interface ServiceMapping {
   source: string;
@@ -343,7 +344,7 @@ interface ExportParams {
   folders?: string[];
   services?: string[];
   versionIds?: string[];
-  filters?: { file?: 'migrate' | 'onpremises'; version?: 'latest' | 'all' };
+  filters?: ExportFilters;
   sourceSystem?: string;
   correlationId?: string;
   maxRetries?: number;
@@ -397,8 +398,8 @@ export interface ExportResult {
 
 interface ImportParams {
   file: Readable;
-  destination: string | string[] | ServiceMapping | ServiceMapping[];
-  ifPresent?: 'abort' | 'replace' | 'add_version';
+  destination: ImportDestination;
+  ifPresent?: IfEntityPresent;
   sourceSystem?: string;
   correlationId?: string;
   maxRetries?: number;
@@ -468,9 +469,9 @@ interface MigrateParams {
   folders?: string[];
   services?: string[];
   versionIds?: string[];
-  filters?: { file?: 'migrate' | 'onpremises'; version?: 'latest' | 'all' };
-  ifPresent?: 'abort' | 'replace' | 'add_version';
-  destination: string | string[] | ServiceMapping | ServiceMapping[];
+  filters?: ExportFilters;
+  ifPresent?: IfEntityPresent;
+  destination: ImportDestination;
   sourceSystem?: string;
   correlationId?: string;
   maxRetries?: number;

@@ -1,18 +1,16 @@
-import { type Readable } from 'stream';
-
-import { Config } from '../config';
 import { Serializable } from '../data';
 import { SparkError } from '../error';
 import { SPARK_SDK } from '../constants';
 import { HttpResponse, Multipart, getRetryTimeout } from '../http';
 import Utils, { StringUtils, DateUtils } from '../utils';
 
-import { BatchService } from './batch';
-import { ApiResource, ApiResponse, Uri, UriParams } from './base';
-import { VersionListed, GetSwaggerParams, GetVersionsParams, GetSchemaParams, GetMetadataParams } from './types';
-import { DownloadParams, RecompileParams, CompileParams, CreateParams, PublishParams, GetStatusParams } from './types';
-import { ImpEx, ExportResult, ImportResult } from './impex';
 import { History } from './history';
+import { BatchService } from './batch';
+import { ImpEx, ImportResult } from './impex';
+import { ApiResource, ApiResponse, Uri, UriParams } from './base';
+import { GetSwaggerParams, GetVersionsParams, GetSchemaParams, GetMetadataParams } from './types';
+import { CreateParams, CompileParams, PublishParams, GetStatusParams, DownloadParams, RecompileParams } from './types';
+import { ExportParams, ImportParams, MigrateParams } from './types';
 
 export class Service extends ApiResource {
   get compilation() {
@@ -181,8 +179,8 @@ export class Service extends ApiResource {
   getSwagger(uri: string): Promise<HttpResponse>;
   getSwagger(params: GetSwaggerParams): Promise<HttpResponse>;
   getSwagger(uri: string | GetSwaggerParams): Promise<HttpResponse> {
-    const { folder, service, versionId = '', downloadable = false, category = 'All' } = Uri.toParams(uri);
-    const endpoint = `downloadswagger/${category}/${downloadable}/${versionId}`;
+    const { folder, service, versionId = '', downloadable = false, subservice = 'All' } = Uri.toParams(uri);
+    const endpoint = `downloadswagger/${subservice}/${downloadable}/${versionId}`;
     const url = Uri.from({ folder, service }, { base: this.config.baseUrl.full, endpoint });
 
     return this.request(url.value);
@@ -196,7 +194,7 @@ export class Service extends ApiResource {
   download(uri: string): Promise<HttpResponse>;
   download(params: DownloadParams): Promise<HttpResponse>;
   download(uri: string | DownloadParams): Promise<HttpResponse> {
-    const { folder, service, version = '', filename = '', type = 'original' } = Uri.toParams(uri);
+    const { folder, service, version = '', fileName: filename = '', type = 'original' } = Uri.toParams(uri);
     const endpoint = `product/${folder}/engines/${service}/download/${version}`;
     const url = Uri.from(undefined, { base: this.config.baseUrl.value, version: 'api/v1', endpoint });
     const params = { filename, type: type === 'configured' ? 'withmetadata' : '' };
@@ -229,55 +227,50 @@ export class Service extends ApiResource {
     return this.request(url.value, { method: 'POST', body: { request_data: data } });
   }
 
-  async export(uri: string | ExportParams): Promise<HttpResponse<ExportResult>[]> {
-    const impex = ImpEx.only(this.config);
-    const { folder, service, version, versionId, retries = this.config.maxRetries + 2, ...params } = Uri.toParams(uri);
-    const serviceUri = Uri.encode({ folder, service, version }, false);
+  /**
+   * Export a Spark service as a zip file.
+   * @param {string | ExportParams} uri - service to export
+   * @returns {Promise<HttpResponse[]>} - a list of exported files
+   * @throws {SparkError} when the export job fails
+   */
+  async export(uri: string): Promise<HttpResponse[]>;
+  async export(params: ExportParams): Promise<HttpResponse[]>;
+  async export(uri: string | ExportParams): Promise<HttpResponse[]> {
+    const { folder, service, version, versionId, ...params } = Uri.toParams(uri);
+    const serviceUri = params.serviceUri ?? Uri.encode({ folder, service, version }, false);
 
-    const response = await impex.exports.initiate({
+    return ImpEx.only(this.config).export({
       services: serviceUri ? [serviceUri] : [],
       versionIds: versionId ? [versionId] : [],
       ...params,
     });
-    const jobId = response.data?.id;
-    if (!jobId) throw new SparkError('failed to produce an export job', response);
-    this.logger.log(`export job created <${jobId}>`);
-
-    const status = await impex.exports.getStatus(jobId, { maxRetries: retries });
-    if (status.data?.outputs?.files?.length === 0) {
-      throw new SparkError('export job failed to produce any files', status);
-    }
-
-    const downloads: HttpResponse<ExportResult>[] = [];
-    for (const file of status.data.outputs.files) {
-      if (!file.file) continue;
-      try {
-        downloads.push(await this.request<ExportResult>(file.file)); // confirm MD5 hash?
-      } catch (cause) {
-        this.logger.warn(`failed to download file <${file.file}>`, cause);
-      }
-    }
-    return downloads;
   }
 
-  async import(uri: ImportParams): Promise<HttpResponse<ImportResult>> {
-    const config = uri.config ?? this.config;
-    const impex = ImpEx.only(config);
-    const { folder, service, retries = config.maxRetries + 3, ...params } = Uri.toParams(uri);
-
-    const response = await impex.imports.initiate({ destination: Uri.encode({ folder, service }, false), ...params });
-    const jobId = response.data?.id;
-    if (!jobId) throw new SparkError('failed to produce an import job', response);
-    this.logger.log(`import job created <${jobId}>`);
-
-    return impex.imports.getStatus(jobId, { maxRetries: retries });
+  /**
+   * Import a Spark service from a zip file.
+   * @param {ImportParams} params - the import parameters
+   * @returns {Promise<HttpResponse<ImportResult>>} - the import results
+   * @throws {SparkError} when the import job fails
+   */
+  async import(params: ImportParams): Promise<HttpResponse<ImportResult>> {
+    return ImpEx.only(params.config ?? this.config).import(params);
   }
 
-  async migrate(params: MigrateUriParams) {
+  /**
+   * Migrate of a Spark service from one workspace to another.
+   * @param {MigrateParams} params - the migration parameters
+   * @returns - the migration results
+   *
+   * Currently in Beta, please use experimentally.
+   */
+  async migrate(params: MigrateParams) {
     const exported = await this.export(params);
-    if (exported.length === 0) throw new SparkError('failed to export any files');
-    const imported = await this.import({ ...params, file: exported[0].buffer });
+    if (exported.length === 0) {
+      this.logger.warn('no service entities to migrate');
+      return { exports: exported, imports: [] };
+    }
 
+    const imported = await this.import({ ...params, file: exported[0].buffer });
     return { exports: exported, imports: imported };
   }
 
@@ -300,7 +293,11 @@ export class Service extends ApiResource {
       requested_output_regex: data?.outputRegex,
       response_data_inputs: data?.withInputs,
       service_category: Array.isArray(data?.subservices) ? data.subservices.join(',') : data?.subservices,
-      validation_type: data?.validationType,
+      validation_type: StringUtils.isNotEmpty(data?.validationType)
+        ? data.validationType === 'dynamic'
+          ? 'dynamic'
+          : 'default_values'
+        : undefined,
     };
 
     const inputs = data?.inputs || initialInputs;
@@ -360,9 +357,9 @@ class Compilation extends ApiResource {
     let response = await this.request<CompilationStatus>(url.value);
     do {
       const { progress } = response.data.response_data;
+      this.logger.log(`waiting for compilation job to complete - ${progress || 0}%`);
       if (progress == 100) return response;
 
-      this.logger.log(`waiting for compilation job to complete - ${progress || 0}%`);
       await new Promise((resolve) => setTimeout(resolve, getRetryTimeout(retries, retryInterval)));
 
       retries++;
@@ -379,37 +376,11 @@ class Compilation extends ApiResource {
 
 type CompilerType = 'Neuron' | 'Type3' | 'Type2' | 'Type1' | 'Xconnector';
 
-type ValidationType = 'default_values' | 'dynamic';
+type ValidationType = 'static' | 'dynamic';
 
 interface ServiceApiResponse<TData, TMeta = Record<string, any>> extends Pick<ApiResponse, 'status' | 'error'> {
   response_data: TData;
   response_meta: TMeta;
-}
-
-interface ExportParams extends Pick<UriParams, 'folder' | 'service' | 'version' | 'versionId'> {
-  filters?: { file?: 'migrate' | 'onpremises'; version?: 'latest' | 'all' };
-  sourceSystem?: string;
-  correlationId?: string;
-  retries?: number;
-}
-
-interface ImportParams extends Pick<UriParams, 'folder' | 'service'> {
-  file: Readable;
-  ifPresent?: 'abort' | 'replace' | 'add_version';
-  sourceSystem?: string;
-  correlationId?: string;
-  retries?: number;
-  config?: Config;
-}
-
-interface MigrateUriParams extends Pick<UriParams, 'folder' | 'service' | 'version' | 'versionId'> {
-  /** The target configuration for the import operation. */
-  config: Config;
-  filters?: { file?: 'migrate' | 'onpremises'; version?: 'latest' | 'all' };
-  ifPresent?: 'abort' | 'replace' | 'add_version';
-  sourceSystem?: string;
-  correlationId?: string;
-  retries?: number;
 }
 
 interface ExecuteData<Inputs = Record<string, any>> {
@@ -465,7 +436,7 @@ type ExecuteBody<Inputs = Record<string, any>> = {
     requested_output_regex?: string;
     response_data_inputs?: boolean;
     service_category?: string;
-    validation_type?: ValidationType;
+    validation_type?: string;
   };
 };
 
@@ -508,16 +479,34 @@ type ServiceExecuted<Outputs = Record<string, any>> = ServiceApiResponse<{
 
 type MetadataFound = ServiceExecuted;
 
-type CompilationStatus = ServiceApiResponse<{
-  status: string;
-  last_error_message: string;
-  progress: number;
-}>;
+type CompilationStatus = ServiceApiResponse<{ status: string; last_error_message: string; progress: number }>;
 
 type ServicePublished = ServiceApiResponse<{ version_id: string }>;
 
-type ServiceRecompiled = ServiceApiResponse<{
-  versionId: string;
+type ServiceRecompiled = ServiceApiResponse<{ versionId: string; revision: string; jobId: string }>;
+
+interface VersionApiResponse<T> extends Pick<ApiResponse, 'status'> {
+  data: T;
+  errorCode: string | null;
+  message: string | null;
+}
+
+interface VersionInfo {
+  id: string;
+  createdAt: string;
+  engine: string;
   revision: string;
-  jobId: string;
-}>;
+  effectiveStartDate: string;
+  effectiveEndDate: string;
+  isActive: boolean;
+  releaseNote: string;
+  childEngines: any[] | null;
+  versionLabel: string;
+  defaultEngineType: string;
+  tags: null;
+  product: string;
+  author: string;
+  originalFileName: string;
+}
+
+export type VersionListed = VersionApiResponse<VersionInfo>;

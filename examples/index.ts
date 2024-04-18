@@ -33,7 +33,7 @@ Service.getVersions(spark);
 Service.getSwagger(spark);
 Service.download(spark);
 Service.execute(spark);
-Service.batchSync(spark);
+Service.executeAll(spark);
 Service.recompile(spark);
 Service.export(spark);
 Service.validate(spark);

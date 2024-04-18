@@ -2,10 +2,10 @@
 
 # Log History API
 
-| Verb                                         | Description                                                |
-| -------------------------------------------- | ---------------------------------------------------------- |
-| `Spark.service.log.rehydrate(uri, [callId])` | Rehydrate the executed model into the original excel file. |
-| `Spark.service.log.download(uri, [type])`    | Download service execution logs as csv or json file.       |
+| Verb                                         | Description                                                                                 |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `Spark.service.log.rehydrate(uri, [callId])` | [Rehydrate the executed model into the original excel file](#rehydrate-the-executed-model). |
+| `Spark.service.log.download(uri, [type])`    | [Download service execution logs as csv or json file](#download-service-execution-logs).    |
 
 > [!WARNING]
 > The service execution history is a good source of truth for auditing and

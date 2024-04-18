@@ -2,10 +2,10 @@
 
 # ImpEx API
 
-| Verb                       | Description                                             |
-| -------------------------- | ------------------------------------------------------- |
-| `Spark.impex.export(data)` | Export Spark entities (versions, services, or folders). |
-| `Spark.impex.import(data)` | Import exported Spark entities into your workspace.     |
+| Verb                       | Description                                                                       |
+| -------------------------- | --------------------------------------------------------------------------------- |
+| `Spark.impex.export(data)` | [Export Spark entities (versions, services, or folders)](#export-spark-entities). |
+| `Spark.impex.import(data)` | [Import exported Spark entities into your workspace](#import-spark-entities).     |
 
 ## Export Spark entities
 
@@ -23,7 +23,7 @@ You may pass in the specs as an `object` with the following properties:
 | _folders_         | `string[]`              | The folder names.                                                               |
 | _services_        | `string[]`              | The service URIs.                                                               |
 | _versionIds_      | `string[]`              | The version UUIDs of the desired service.                                       |
-| _filters_         | `object`                | How to filter out which entities to export                                      |
+| _filters_         | `object`                | How to filter out which entities to export.                                     |
 | _filters.file_    | `migrate \| onpremises` | Whether it's for data migration or on-prem deployments (defaults to `migrate`). |
 | _filters.version_ | `latest \| all`         | Which version of the file to export (defaults to `all`).                        |
 | _sourceSystem_    | `string`                | The source system name to export from (e.g., `Spark JS SDK`).                   |
@@ -73,15 +73,15 @@ can be imported into Spark.
 
 You may pass in the specs as an `object` with the following properties:
 
-| Property        | Type                                                       | Description                                                                       |
-| --------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| _file_          | `Readable`                                                 | The ZIP file containing the exported entities.                                    |
-| _destination_   | `string \| string[] \| ServiceMapping \| ServiceMapping[]` | The destination service URI.                                                      |
-| _ifPresent_     | `abort \| replace \| add_version`                          | What to do if the entity already exists in the destination (defaults to `abort`). |
-| _sourceSystem_  | `string`                                                   | The source system name to import from (e.g., `Spark JS SDK`).                     |
-| _correlationId_ | `string`                                                   | The correlation ID for the import (useful for tagging).                           |
-| _maxRetries_    | `number`                                                   | The maximum number of retries when checking the import status.                    |
-| _retryInterval_ | `number`                                                   | The interval between status check retries in seconds.                             |
+| Property        | Type                              | Description                                                                       |
+| --------------- | --------------------------------- | --------------------------------------------------------------------------------- |
+| _file_          | `Readable`                        | The ZIP file containing the exported entities.                                    |
+| _destination_   | `ImportDestination`               | The destination service URI.                                                      |
+| _ifPresent_     | `abort \| replace \| add_version` | What to do if the entity already exists in the destination (defaults to `abort`). |
+| _sourceSystem_  | `string`                          | The source system name to import from (e.g., `Spark JS SDK`).                     |
+| _correlationId_ | `string`                          | The correlation ID for the import (useful for tagging).                           |
+| _maxRetries_    | `number`                          | The maximum number of retries when checking the import status.                    |
+| _retryInterval_ | `number`                          | The interval between status check retries in seconds.                             |
 
 The `destination` folder should exist in the tenant in order to import the entities.
 When `destination` is of `string` type, it should be formatted as `folder/service[?version]`.

@@ -21,8 +21,8 @@ which shall help you save time and streamline your development process.
 ### EcmaScript Modules (ESM) vs CommonJS (CJS)
 
 The SDK is written in TypeScript and compiled to both EcmaScript Modules (ESM) and
-CommonJS (CJS) formats. You can import the SDK in your project using either of these
-formats:
+CommonJS (CJS) formats. You may import the SDK in your project using either of these
+formats.
 
 **Using ESM:**
 
@@ -36,14 +36,18 @@ import Spark from '@cspark/sdk';
 const { SparkClient: Spark } = require('@cspark/sdk');
 ```
 
-To maintain consistency across the examples used in the SDK documentation and to
-avoid confusion, we will use the ESM format in all the code snippets.
+To avoid confusion and maintain consistency across the examples used in the SDK
+documentation, the ESM format will be used in all the code snippets.
 
 ### Transactional vs Non-Transactional Requests
 
 Most of the SDK methods are non-transactional, meaning that a request is expected
-to perform one task only by hitting one Spark endpoint only. In short, a stateless roundtrip.
-However, some methods will perform multiple API requests to complete a task (or transaction).
+to perform one task only, i.e, hitting one Spark endpoint only. In short, a
+stateless roundtrip.
+However, for convenience purposes, we provide some methods that can execute a series
+of tasks, handle their internal states, and return the final result in a single call
+(or _transaction)_.
+
 For example:
 
 - `Spark.folder.create(data)` will create a folder and upload a cover image (if any)
@@ -59,7 +63,7 @@ For example:
 
 These transactional methods are quite useful as they will handle the entire process
 for you, from start to finish. Unfortunately, they may take a bit longer to complete.
-Therefore, you are welcome to use non-transactional methods if you want more
+Therefore, you are welcome to use non-transactional methods for more fine-grained
 control over the process.
 
 ## HTTP Request
@@ -180,7 +184,7 @@ SDK currently supports about 1/3 of them.
 
 Even though the SDK does not cover all the APIs available in the platform, it provides
 a good starting point for developers to interact with it. So, if there's an API resource
-that you need to consume and is not available in the SDK, you can always extend
+that you need to consume and it is not available in the SDK, you can always extend
 this `ApiResource` class to include it. Here's an example of how you can do it:
 
 ```ts
@@ -212,10 +216,10 @@ myResource.fetchData().then((response) => {
 });
 ```
 
-Do notice the `this.config` property and the `this.request(...)` method in the
-`MyResource` class. These are inherited from the `ApiResource` class and are
+Did you notice the `this.config` property and the `this.request(...)` method in the
+`MyResource` class? These are inherited from the `ApiResource` class and are
 available for you to use in your custom resource. The `config` property contains
-some other goodies like the `baseUrl`, which can be used to build other URLs for
+some other goodies like the `baseUrl`, which can be used to build other URLs
 supported by the Spark platform.
 
 The `Uri` class is also available to help you build the URL for your custom resource.
@@ -235,7 +239,9 @@ async function main(folderName) {
     // omit previous code for brevity
     const spark = new Spark(); // settings are loaded from the environment variables
     const response = await spark.folder.create(folderName);
-    console.log(response.data); // do something with the response
+
+    // when successful, do something with the response
+    console.log(response.data);
   } catch (error) {
     if (error instanceof SparkError) {
       console.warn(error.details); // this is thrown by the SDK
@@ -253,11 +259,21 @@ async function main(folderName) {
 main('my-folder');
 ```
 
+By the way, you may import the `Logger` class from the SDK to help you with a more
+structured, consistent way of logging errors and other messages in your application.
+
+```ts
+import { Logger } from '@cspark/sdk';
+
+const logger = Logger.of(/* logger options if needed */);
+logger.error('something went wrong');
+```
+
 ## Support and Feedback
 
 The SDK is a powerful tool that will help you interact with the Spark platform
-in a more efficient and streamlined way. It provides a simple interface to access
-the platform's APIs, which will help you save time and effort during development.
+in a more efficient and streamlined way, which is intended to help you save time
+and effort during development.
 
 If you have any questions or need help with the SDK, feel free to reach out to
 the Coherent team. We are always happy to help you with your projects and provide

@@ -10,7 +10,7 @@ export class History extends ApiResource {
 
   /**
    * Rehydrate the executed model into the original excel file.
-   * @param {string | RehydrateUriParams} uri - how to locate the service
+   * @param {string | RehydrateParams} uri - how to locate the service
    * @param {string} callId - optional callId to rehydrate if not provided in the params.
    * @returns {Promise<HttpResponse<LogRehydrated>>} - the rehydrated log
    *
@@ -18,8 +18,8 @@ export class History extends ApiResource {
    * to produce a downloadable Excel file.
    */
   async rehydrate(uri: string, callId: string): Promise<HttpResponse<LogRehydrated>>;
-  async rehydrate(params: RehydrateUriParams): Promise<HttpResponse<LogRehydrated>>;
-  async rehydrate(uri: string | RehydrateUriParams, callId?: string): Promise<HttpResponse<LogRehydrated>> {
+  async rehydrate(params: RehydrateParams): Promise<HttpResponse<LogRehydrated>>;
+  async rehydrate(uri: string | RehydrateParams, callId?: string): Promise<HttpResponse<LogRehydrated>> {
     const { folder, service, ...params } = Uri.toParams(uri);
     callId = (callId ?? params?.callId)?.trim();
     if (!callId) {
@@ -44,15 +44,15 @@ export class History extends ApiResource {
 
   /**
    * Download service execution logs as csv or json file.
-   * @param {string | DownloadUriParams} uri - how to locate the service
+   * @param {string | DownloadParams} uri - how to locate the service
    * @param {'csv' | 'json'} type - the file format to download
    * @returns {Promise<HttpResponse<LogStatus>>} - the download file
    *
    * @throws {SparkError} - if the download job fails to produce a downloadable file.
    */
   async download(uri: string, type: DownloadFileType): Promise<HttpResponse<LogStatus>>;
-  async download(params: DownloadUriParams): Promise<HttpResponse<LogStatus>>;
-  async download(uri: string | DownloadUriParams, type?: DownloadFileType): Promise<HttpResponse<LogStatus>> {
+  async download(params: DownloadParams): Promise<HttpResponse<LogStatus>>;
+  async download(uri: string | DownloadParams, type?: DownloadFileType): Promise<HttpResponse<LogStatus>> {
     const { folder, service, maxRetries = this.config.maxRetries, retryInterval = 3, ...params } = Uri.toParams(uri);
     type = (type ?? params?.type ?? 'json').toLowerCase() as DownloadFileType;
 
@@ -80,18 +80,18 @@ export class History extends ApiResource {
 class LogDownload extends ApiResource {
   /**
    * Create a download job for service execution logs.
-   * @param {string | CreateJobUriParams} uri - how to locate the service
+   * @param {string | CreateJobParams} uri - how to locate the service
    * @param {'csv' | 'json'} type - optional file format to download
    * @returns {Promise<HttpResponse<LogStatus>>} - includes the download file and status
    *
    * @throws {SparkError} - if the download job fails to produce a downloadable file.
    */
-  async initiate(uri: string | CreateJobUriParams, type?: DownloadFileType): Promise<HttpResponse<JobCreated>> {
+  async initiate(uri: string | CreateJobParams, type?: DownloadFileType): Promise<HttpResponse<JobCreated>> {
     const { folder, service, ...params } = Uri.toParams(uri);
     type = (type ?? params?.type ?? 'json').toLowerCase() as DownloadFileType;
     const url = Uri.from({ folder, service }, { base: this.config.baseUrl.full, endpoint: `log/download${type}` });
 
-    const body = ((params: Omit<CreateJobUriParams, 'folder' | 'service'>) => {
+    const body = ((params: Omit<CreateJobParams, 'folder' | 'service'>) => {
       const { sourceSystem, correlationId, startDate, endDate } = params;
       const callIds = params.callIds ?? [];
       if (callIds?.length === 0 && sourceSystem) callIds.push(sourceSystem);
@@ -118,14 +118,14 @@ class LogDownload extends ApiResource {
 
   /**
    * Get the status of a download job for service execution logs.
-   * @param {string | GetStatusUriParams} uri - how to locate the job
+   * @param {string | GetStatusParams} uri - how to locate the job
    * @param {'csv' | 'json'} type - optional file format to download
    * @returns {Promise<HttpResponse<LogStatus>>} - the download status and URL
    * @throws {SparkError} - if the download job status check times out.
    */
   async getStatus(uri: string, type: DownloadFileType): Promise<HttpResponse<LogStatus>>;
-  async getStatus(params: GetStatusUriParams): Promise<HttpResponse<LogStatus>>;
-  async getStatus(uri: string | GetStatusUriParams, type?: DownloadFileType): Promise<HttpResponse<LogStatus>> {
+  async getStatus(params: GetStatusParams): Promise<HttpResponse<LogStatus>>;
+  async getStatus(uri: string | GetStatusParams, type?: DownloadFileType): Promise<HttpResponse<LogStatus>> {
     const { jobId, maxRetries = this.config.maxRetries, retryInterval = 3, ...params } = Uri.toParams(uri);
     type = (type ?? params?.type ?? 'json').toLowerCase() as DownloadFileType;
     const url = Uri.from(params, { base: this.config.baseUrl.full, endpoint: `log/download${type}/status/${jobId}` });
@@ -134,9 +134,9 @@ class LogDownload extends ApiResource {
     let response = await this.request<LogStatus>(url.value);
     do {
       const { progress } = response.data.response_data;
-      if (progress == 100) return response;
-
       this.logger.log(`waiting for log status job to complete - ${progress || 0}%`);
+
+      if (progress == 100) return response;
       await new Promise((resolve) => setTimeout(resolve, getRetryTimeout(retries, retryInterval)));
 
       retries++;
@@ -151,7 +151,7 @@ class LogDownload extends ApiResource {
   }
 }
 
-interface RehydrateUriParams extends Pick<UriParams, 'folder' | 'service'> {
+interface RehydrateParams extends Pick<UriParams, 'folder' | 'service'> {
   folder: string;
   service: string;
   callId: string;
@@ -160,7 +160,7 @@ interface RehydrateUriParams extends Pick<UriParams, 'folder' | 'service'> {
 /** Download file types: 'csv' or 'json'. Defaults to 'json'. */
 type DownloadFileType = 'csv' | 'json' | 'CSV' | 'JSON';
 
-interface CreateJobUriParams extends Pick<UriParams, 'folder' | 'service' | 'versionId'> {
+interface CreateJobParams extends Pick<UriParams, 'folder' | 'service' | 'versionId'> {
   folder: string;
   service: string;
 
@@ -178,13 +178,13 @@ interface CreateJobUriParams extends Pick<UriParams, 'folder' | 'service' | 'ver
   timezoneOffset?: string;
 }
 
-interface DownloadUriParams extends CreateJobUriParams {
+interface DownloadParams extends CreateJobParams {
   /** Defaults to `Config.maxRetries` */
   maxRetries?: number;
   retryInterval?: number;
 }
 
-interface GetStatusUriParams extends Pick<UriParams, 'folder' | 'service'> {
+interface GetStatusParams extends Pick<UriParams, 'folder' | 'service'> {
   folder: string;
   service: string;
   jobId: string;

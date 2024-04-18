@@ -132,7 +132,7 @@ the token when it expires. However, you can also generate or refresh the token m
 how you can do it:
 
 ```ts
-const spark = new Spark({ oauth: 'path/to/your/credentials.json' });
+const spark = new Spark({ oauth: 'path/to/my/credentials.json' });
 await spark.config.auth.oauth?.retrieveToken(spark.config);
 
 // the access token is now available in the configuration

@@ -2,10 +2,10 @@
 
 # Other APIs
 
-| Verb                       | Description                              |
-| -------------------------- | ---------------------------------------- |
-| `Spark.wasm.download(uri)` | Download a service's WebAssembly module. |
-| `Spark.file.download(url)` | Download a Spark file.                   |
+| Verb                       | Description                                                                         |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| `Spark.wasm.download(uri)` | [Download a service's WebAssembly module](#download-a-services-webassembly-module). |
+| `Spark.file.download(url)` | [Download a Spark file](#download-a-spark-file).                                    |
 
 ## Download a service's WebAssembly module
 

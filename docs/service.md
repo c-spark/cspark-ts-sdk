@@ -2,19 +2,20 @@
 
 # Service API
 
-| Verb                                     | Description                                                                                                  |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `Spark.service.create(data)`             | [Create a new Spark service](#create-a-new-spark-service).                                                   |
-| `Spark.service.execute(uri, data)`       | [Execute a Spark service](#execute-a-spark-service).                                                         |
-| `Spark.service.batch.execute(uri, data)` | [Execute multiple records synchronously](#execute-multiple-records-synchronously).                           |
-| `Spark.service.getVersions(uri)`         | [Get all the versions of a service](#get-all-the-versions-of-a-service).                                     |
-| `Spark.service.getSwagger(uri)`          | [Get the Swagger documentation of a service](#get-the-swagger-documentation-of-a-service).                   |
-| `Spark.service.getSchema(uri)`           | [Get the schema for a given service](#get-the-schema-for-a-service).                                         |
-| `Spark.service.getMetadata(uri)`         | [Get the metadata of a service](#get-the-metadata-of-a-service).                                             |
-| `Spark.service.download(uri)`            | [Download the excel file of a service](#download-the-excel-file-of-a-service).                               |
-| `Spark.service.recompile(uri)`           | [Recompile a service using specific compiler version](#recompile-a-service-using-specific-compiler-version). |
-| `Spark.service.validate(uri, data)`      | Run static or dynamic validations against records.                                                           |
-| `Spark.service.export(uri, data)`        | Export Spark services as a zip file.                                                                         |
+| Verb                                     | Description                                                                        |
+| ---------------------------------------- | ---------------------------------------------------------------------------------- |
+| `Spark.service.create(data)`             | [Create a new Spark service](#create-a-new-spark-service).                         |
+| `Spark.service.execute(uri, data)`       | [Execute a Spark service](#execute-a-spark-service).                               |
+| `Spark.service.batch.execute(uri, data)` | [Execute multiple records synchronously](#execute-multiple-records-synchronously). |
+| `Spark.service.getVersions(uri)`         | [Get all the versions of a service](#get-all-the-versions-of-a-service).           |
+| `Spark.service.getSwagger(uri)`          | [Get the Swagger documentation of a service](#get-the-swagger-documentation).      |
+| `Spark.service.getSchema(uri)`           | [Get the schema for a given service](#get-the-schema-for-a-service).               |
+| `Spark.service.getMetadata(uri)`         | [Get the metadata of a service](#get-the-metadata-of-a-service).                   |
+| `Spark.service.download(uri)`            | [Download the excel file of a service](#download-the-excel-file-of-a-service).     |
+| `Spark.service.recompile(uri)`           | [Recompile a service using specific compiler version](#recompile-a-service).       |
+| `Spark.service.validate(uri, data)`      | [Validate input data using static or dynamic validations](#validate-input-data).   |
+| `Spark.service.export(uri)`              | [Export Spark services as a zip file](#export-spark-services).                     |
+| `Spark.service.import(data)`             | [Import a Spark service from a zip file](#import-spark-services).                  |
 
 ## Create a new Spark service
 
@@ -266,28 +267,28 @@ For the first argument, `UriParams` object:
 
 For the second argument, `ExecuteParams` object:
 
-| Property             | Type                  | Description                                                     |
-| -------------------- | --------------------- | --------------------------------------------------------------- |
-| _inputs_             | `Record<string, any>` | The input data.                                                 |
-| _raw_                | `string`              | The input data in its raw form.                                 |
-| _data_               | `ExecuteData<Inputs>` | Executable input data with metadata.                            |
-| _data.inputs_        | `Record<string, any>` | Alternate way to pass in input data.                            |
-| _data.serviceUri_    | `string`              | The service URI.                                                |
-| _data.versionId_     | `string`              | The version ID of the service.                                  |
-| _data.serviceId_     | `string`              | The service UUID.                                               |
-| _data.version_       | `string`              | The semantic version.                                           |
-| _data.activeSince_   | `string`              | The transaction date.                                           |
-| _data.sourceSystem_  | `string`              | The source system.                                              |
-| _data.correlationId_ | `string`              | The correlation ID.                                             |
-| _data.callPurpose_   | `string`              | The call purpose.                                               |
-| _data.outputs_       | `string \| string[]`  | The array of output names.                                      |
-| _data.compilerType_  | `string`              | The compiler type (e.g., `Neuron`).                             |
-| _data.debugSolve_    | `boolean`             | Enable debugging for solve functions.                           |
-| _data.output_        | `string \| string[]`  | Expect specific requested output.                               |
-| _data.outputRegex_   | `string`              | Expect specific requested output using regex.                   |
-| _data.withInputs_    | `boolean`             | Whether to include input data in the response.                  |
-| _data.subservices_   | `string \| string[]`  | The comma-separated subservice names.                           |
-| _data.downloadable_  | `boolean`             | Whether to include a download URL of the Excel in the response. |
+| Property             | Type                       | Description                                                     |
+| -------------------- | -------------------------- | --------------------------------------------------------------- |
+| _inputs_             | `Record<string, any>`      | The input data.                                                 |
+| _raw_                | `string`                   | The input data in its raw form.                                 |
+| _data_               | `ExecuteData<Inputs>`      | Executable input data with metadata.                            |
+| _data.inputs_        | `Record<string, any>`      | Alternate way to pass in input data.                            |
+| _data.serviceUri_    | `string`                   | The service URI.                                                |
+| _data.versionId_     | `string`                   | The version ID of the service.                                  |
+| _data.serviceId_     | `string`                   | The service UUID.                                               |
+| _data.version_       | `string`                   | The semantic version.                                           |
+| _data.activeSince_   | `string \| number \| Date` | The transaction date.                                           |
+| _data.sourceSystem_  | `string`                   | The source system.                                              |
+| _data.correlationId_ | `string`                   | The correlation ID.                                             |
+| _data.callPurpose_   | `string`                   | The call purpose.                                               |
+| _data.outputs_       | `string \| string[]`       | The array of output names.                                      |
+| _data.compilerType_  | `string`                   | The compiler type (e.g., `Neuron`).                             |
+| _data.debugSolve_    | `boolean`                  | Enable debugging for solve functions.                           |
+| _data.output_        | `string \| string[]`       | Expect specific requested output.                               |
+| _data.outputRegex_   | `string`                   | Expect specific requested output using regex.                   |
+| _data.withInputs_    | `boolean`                  | Whether to include input data in the response.                  |
+| _data.subservices_   | `string \| string[]`       | The comma-separated subservice names if string.                 |
+| _data.downloadable_  | `boolean`                  | Whether to include a download URL of the Excel in the response. |
 
 ### Returns
 
@@ -474,7 +475,7 @@ await spark.service.getVersions({ folder: 'my-folder', service: 'my-service' });
 }
 ```
 
-## Get the Swagger documentation of a service
+## Get the Swagger documentation
 
 This method returns the JSON content or downloads the swagger file of a particular service.
 
@@ -496,7 +497,7 @@ When using the `UriParams` object, you can also specify additional options:
 | _service_      | `string`  | The service name.                                                         |
 | _versionId_    | `string`  | The UUID to target a specific version of the service (optional).          |
 | _downloadable_ | `boolean` | If `true`, the method downloads the swagger file; else, the JSON content. |
-| _category_     | `string`  | The list of the subservices being requested or `all` subservices.         |
+| _subservice_   | `string`  | The list of the subservices being requested or `all` subservices.         |
 
 ```ts
 await spark.service.getSwagger({
@@ -629,7 +630,7 @@ await spark.service.download({
 When successful, the method returns an `HttpResponse` object with the buffer
 containing the Excel file.
 
-## Recompile a service using specific compiler version
+## Recompile a service
 
 Every service in Spark is compiled using a specific compiler version -- usually
 the latest one. However, you may want to recompile a service using a specific
@@ -651,16 +652,16 @@ When using `string`-based service URIs, the method recompiles the service using 
 latest compiler version and a `patch` update. If you want to recompile the service
 using a specific compiler version, you must use the `UriParams` object.
 
-| Property       | Type                       | Description                                              |
-| -------------- | -------------------------- | -------------------------------------------------------- |
-| _versionId_    | `string`                   | The UUID of a particular version of the service.         |
-| _compiler_     | `string`                   | The compiler version to use (do not confuse with type).  |
-| _upgrade_      | `major \| minor \| patch`  | which type of versioning to apply (defaults to `patch`). |
-| _label_        | `string`                   | The version label.                                       |
-| _releaseNotes_ | `string`                   | The release notes.                                       |
-| _tags_         | `string \| string[]`       | The comma-separted tags to apply to the service.         |
-| _startDate_    | `number \| string \| Date` | The effective start date.                                |
-| _endDate_      | `number \| string \| Date` | The effective end date.                                  |
+| Property       | Type                       | Description                                                |
+| -------------- | -------------------------- | ---------------------------------------------------------- |
+| _versionId_    | `string`                   | The UUID of a particular version of the service.           |
+| _compiler_     | `string`                   | The compiler version to use (do not confuse with type).    |
+| _upgrade_      | `major \| minor \| patch`  | which type of versioning to apply (defaults to `patch`).   |
+| _label_        | `string`                   | The version label.                                         |
+| _releaseNotes_ | `string`                   | The release notes.                                         |
+| _tags_         | `string \| string[]`       | The comma-separted tags to apply to the service if string. |
+| _startDate_    | `number \| string \| Date` | The effective start date.                                  |
+| _endDate_      | `number \| string \| Date` | The effective end date.                                    |
 
 The supported compiler versions include but not limited to:
 
@@ -705,3 +706,184 @@ is successful, this method returns a JSON with the job details.
 
 A recompilation job is asynchronous and may take some time to complete. You may
 want to poll the job status before using the updated service.
+
+## Validate input data
+
+This method validates the input data using static or dynamic validations set in
+the Excel file. This is useful for building frontend applications that connect
+to Spark services.
+
+- `static` validation is a cell validation that's only affected by its own formula.
+- `dynamic` validation is a cell validation that depends on other cells/inputs.
+
+Check out the [API reference](https://docs.coherent.global/spark-apis/validation-api)
+to learn more about validation of the inputs and outputs.
+
+> **Note:** This method works similarly to the `Spark.service.execute` method but
+> with a different purpose. If you want to know more about the input and output
+> data format, check the [excute(...)](#execute-a-spark-service) method.
+
+### Arguments
+
+This method follows the same pattern as the `execute` method. To specify which type
+of validation to use, you must provide the `validationType` property as part of
+the `ExecuteParams` object.
+
+```ts
+const inputs = { my_input: 13 };
+const metadata = { validationType: 'dynamic', callPurpose: 'Demo' };
+await spark.service.validate('my-folder/my-service', { data: { inputs, ...metadata } });
+```
+
+### Returns
+
+```json
+{
+  "status": "Success",
+  "error": null,
+  "response_data": {
+    "outputs": {
+      "my_static_input": {
+        "validation_allow": "List",
+        "validation_type": "static",
+        "dependent_inputs": ["my_dynamic_input"],
+        "min": null,
+        "max": null,
+        "options": ["a", "b"],
+        "ignore_blank": true
+      },
+      "my_dynamic_input": {
+        "validation_allow": "List",
+        "validation_type": "dynamic",
+        "dependent_inputs": null,
+        "min": null,
+        "max": null,
+        "options": ["x", "y", "z"],
+        "ignore_blank": false
+      }
+    },
+    "warnings": null,
+    "errors": null,
+    "service_chain": null
+  },
+  "response_meta": {
+    "service_id": "uuid",
+    "version_id": "uudi",
+    "version": "0.4.2",
+    "process_time": 0,
+    "call_id": "uuid",
+    "compiler_type": "Type3",
+    "compiler_version": "1.12.0",
+    "source_hash": null,
+    "engine_id": "alpha-numeric-id",
+    "correlation_id": null,
+    "parameterset_version_id": null,
+    "system": "SPARK",
+    "request_timestamp": "1970-01-23T00:58:20.752Z"
+  }
+}
+```
+
+See more examples of [static validation](https://docs.coherent.global/spark-apis/validation-api#validation_type-static)
+and [dynamic validation](https://docs.coherent.global/spark-apis/validation-api#validation_type-dynamic-part-1).
+
+## Export Spark services
+
+This method exports Spark services as a zip file. This method is a wrapper around
+the [Spark.impex.export()](./impex.md#export-spark-entities) with the exception
+that it only exports services.
+
+### Arguments
+
+You may pass in the service URI as a string or a `UriParams` object.
+
+```ts
+await spark.service.export('my-folder/my-service');
+// or
+await spark.service.export({ folder: 'my-folder', service: 'my-service' });
+```
+
+Additionally, you can specify optional parameters to customize the export process.
+
+| Property          | Type                    | Description                                                        |
+| ----------------- | ----------------------- | ------------------------------------------------------------------ |
+| _folder_          | `string`                | The folder name.                                                   |
+| _service_         | `string`                | The service name.                                                  |
+| _version_         | `string`                | The semantic version of the service to export.                     |
+| _versionId_       | `string`                | The UUID of a particular version of the service.                   |
+| _serviceUri_      | `string`                | The service URI (e.g., `my-folder/my-service`).                    |
+| _filters_         | `object`                | How to filter out which entities to export.                        |
+| _filters.file_    | `migrate \| onpremises` | For data migration or on-prem deployments (defaults to `migrate`). |
+| _filters.version_ | `latest \| all`         | Which version of the file to export (defaults to `all`).           |
+| _sourceSystem_    | `string`                | The source system name to export from (e.g., `Spark JS SDK`).      |
+| _correlationId_   | `string`                | The correlation ID for the export (useful for tagging).            |
+| _maxRetries_      | `number`                | The maximum number of retries when checking the export status.     |
+| _retryInterval_   | `number`                | The interval between status check retries in seconds.              |
+
+For example, the example below exports the latest version of a service and packages
+all its associated files into a zip file.
+
+```ts
+await spark.service.export({
+  folder: 'my-folder',
+  service: 'my-service',
+  filters: { version: 'latest' },
+  maxRetries: 5,
+  retryInterval: 3,
+});
+```
+
+### Returns
+
+When successful, this method returns an array of exported entities, where each entity
+is an `HttpResponse` object with the buffer containing the exported entity.
+
+## Import Spark services
+
+This method imports a Spark service from a zip file into the Spark platform. The
+zip file must be in the correct format and contain the necessary files to import
+the service. That is to say, only zip files that were previously exported using
+file type `migrate` can be imported.
+
+Similarly, this method is a wrapper around the [Spark.impex.import()](./impex.md#import-spark-entities)
+with the exception that it only imports services.
+
+### Arguments
+
+You must provide a readable stream of the zip file to import and a service URI
+locator. The method accepts a set of optional parameters to customize the import
+process.
+
+| Property        | Type                              | Description                                                                       |
+| --------------- | --------------------------------- | --------------------------------------------------------------------------------- |
+| _destination_   | `ImportDestination`               | The destination service URI (required).                                           |
+| _file_          | `Readable`                        | The ZIP file containing the exported entities (required).                         |
+| _config_        | `Config`                          | The workspace configuration if different from current.                            |
+| _ifPresent_     | `abort \| replace \| add_version` | What to do if the entity already exists in the destination (defaults to `abort`). |
+| _sourceSystem_  | `string`                          | The source system name to import from (e.g., `Spark JS SDK`).                     |
+| _correlationId_ | `string`                          | The correlation ID for the import (useful for tagging).                           |
+| _maxRetries_    | `number`                          | The maximum number of retries when checking the import status.                    |
+| _retryInterval_ | `number`                          | The interval between status check retries in seconds.                             |
+
+> [!IMPORTANT]
+> The `destination` property is a way to specify how the service mapping should be
+> done during the import process. When it's a `string`, the SDK will assume that
+> the source and target folders are the same. If you want to map the service to a
+> different folder, you must provide an object with `source` and `target` properties.
+
+```ts
+import { createReadStream } from 'fs';
+
+await spark.service.import({
+  destination: { source: 'my-folder-source/my-service', target: 'my-folder-target/my-service' },
+  file: createReadStream('path/to/my-service.zip'),
+  maxRetries: 5,
+  retryInterval: 3,
+});
+```
+
+### Returns
+
+This method returns a JSON payload containing the import summary and the imported
+entities have been created/mapped in the destination tenant. See the example in the
+[import method](./impex.md#import-spark-entities) for a sample response.

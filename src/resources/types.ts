@@ -1,33 +1,14 @@
 import { type Readable } from 'stream';
-import { ApiResponse, UriParams } from './base';
+import { type Config } from '../config';
 
-type UpgradeType = 'major' | 'minor' | 'patch';
+import { UriParams } from './base';
+import { ImportDestination } from './impex';
 
-export interface VersionApiResponse<T> extends Pick<ApiResponse, 'status'> {
-  data: T;
-  errorCode: string | null;
-  message: string | null;
-}
+export type UpgradeType = 'major' | 'minor' | 'patch';
 
-export interface VersionInfo {
-  id: string;
-  createdAt: string;
-  engine: string;
-  revision: string;
-  effectiveStartDate: string;
-  effectiveEndDate: string;
-  isActive: boolean;
-  releaseNote: string;
-  childEngines: any[] | null;
-  versionLabel: string;
-  defaultEngineType: string;
-  tags: null;
-  product: string;
-  author: string;
-  originalFileName: string;
-}
+export type ExportFilters = { file?: 'migrate' | 'onpremises'; version?: 'latest' | 'all' };
 
-export type VersionListed = VersionApiResponse<VersionInfo>;
+export type IfEntityPresent = 'abort' | 'replace' | 'add_version';
 
 export interface GetVersionsParams extends Pick<UriParams, 'folder' | 'service'> {}
 
@@ -36,12 +17,12 @@ export interface GetSchemaParams extends Pick<UriParams, 'folder' | 'service'> {
 export interface GetMetadataParams extends Omit<UriParams, 'version'> {}
 
 export interface GetSwaggerParams extends Pick<UriParams, 'folder' | 'service' | 'versionId'> {
-  category?: string;
+  subservice?: string;
   downloadable?: boolean;
 }
 
 export interface DownloadParams extends Pick<UriParams, 'folder' | 'service' | 'version'> {
-  filename?: string;
+  fileName?: string;
   type?: 'original' | 'configured';
 }
 
@@ -90,4 +71,35 @@ export interface PublishParams extends Pick<UriParams, 'folder' | 'service'> {
   startDate?: string | number | Date;
   endDate?: string | number | Date;
   trackUser?: boolean;
+}
+
+export interface ExportParams extends Pick<UriParams, 'folder' | 'service' | 'version' | 'versionId'> {
+  serviceUri?: string;
+  filters?: ExportFilters;
+  sourceSystem?: string;
+  correlationId?: string;
+  maxRetries?: number;
+  retryInterval?: number;
+}
+
+export interface ImportParams {
+  file: Readable;
+  destination: ImportDestination;
+  config?: Config;
+  ifPresent?: IfEntityPresent;
+  sourceSystem?: string;
+  correlationId?: string;
+  maxRetries?: number;
+  retryInterval?: number;
+}
+
+export interface MigrateParams {
+  destination: ImportDestination;
+  config: Config;
+  filters?: ExportFilters;
+  ifPresent?: IfEntityPresent;
+  sourceSystem?: string;
+  correlationId?: string;
+  maxRetries?: number;
+  retryInterval?: number;
 }

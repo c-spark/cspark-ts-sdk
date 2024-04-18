@@ -3,7 +3,6 @@ import { type SparkClient } from '@cspark/sdk';
 
 function create(spark: SparkClient) {
   const file = createReadStream('my-service.xlsx');
-
   spark.service
     .create({
       file: file,
@@ -103,7 +102,10 @@ function exportAsZip(spark: SparkClient) {
 function importFromZip(spark: SparkClient) {
   const file = createReadStream('package.zip');
   spark.service
-    .import({ folder: 'my-folder', service: 'my-service', file })
+    .import({
+      destination: { source: 'my-folder-source/my-service', target: 'my-folder-target/my-service' },
+      file,
+    })
     .then((response) => console.log(response.data))
     .catch(console.error);
 }
@@ -111,7 +113,10 @@ function importFromZip(spark: SparkClient) {
 function migrate(spark: SparkClient) {
   const config = spark.config.copyWith({ env: 'prod', apiKey: 'other-key' }); // my import config
   spark.service
-    .migrate({ folder: 'my-folder', service: 'my-service', config })
+    .migrate({
+      destination: { source: 'my-folder-source/my-service', target: 'my-folder-target/my-service' },
+      config,
+    })
     .then((job) => console.log(job.imports))
     .catch(console.error);
 }

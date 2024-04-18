@@ -2,13 +2,13 @@
 
 # Folder API
 
-| Verb                            | Description                                                 |
-| ------------------------------- | ----------------------------------------------------------- |
-| `Spark.folder.getCategories()`  | Get the list of folder categories.                          |
-| `Spark.folder.create(data)`     | Create a new folder using info like name, description, etc. |
-| `Spark.folder.find(name)`       | Find folders by name, status, category, or favorite.        |
-| `Spark.folder.update(id, data)` | Update a folder's information by id.                        |
-| `Spark.folder.delete(id)`       | Delete a folder by id.                                      |
+| Verb                            | Description                                                                       |
+| ------------------------------- | --------------------------------------------------------------------------------- |
+| `Spark.folder.getCategories()`  | [Get the list of folder categories](#get-the-folder-categories).                  |
+| `Spark.folder.create(data)`     | [Create a new folder with additional info](#create-a-new-folder).                 |
+| `Spark.folder.find(name)`       | [Find folders by name, status, category, or favorite](#find-folders-by-criteria). |
+| `Spark.folder.update(id, data)` | [Update a folder's information by id](#update-a-folders-information).             |
+| `Spark.folder.delete(id)`       | [Delete a folder by id](#delete-a-folder-by-id).                                  |
 
 ## Get the folder categories
 
@@ -72,7 +72,7 @@ This method allows you to create a new folder by providing a folder name.
 
 > [!IMPORTANT]
 > Remember to choose a folder name that is URL-friendly as it will form part of
-> a Spark Service URI. We recommend using lowercase letters and hyphens to separate
+> a Spark service URI. It's recommended to use lowercase letters and hyphens to separate
 > words. Otherwise, special characters like space will be URL-encoded.
 
 ### Arguments
@@ -88,7 +88,7 @@ will create a folder with some additional information.
 
 | Property          | Type                       | Description                                             |
 | ----------------- | -------------------------- | ------------------------------------------------------- |
-| _name_ (required) | `string`                   | The name of the folder (120 characters max)             |
+| _name_ (required) | `string`                   | The name of the folder.                                 |
 | _description_     | `string`                   | The description of the folder.                          |
 | _category_        | `FolderCategory`           | The category of the folder.                             |
 | _startDate_       | `string \| number \| Date` | The start date (format: `YYYY-MM-DD[THH:MM:SS.SSSZ]`).  |
@@ -158,7 +158,7 @@ Otherwise, it will throw a `SparkApiError`:
 > See [Authentication API](./authentication.md) for more information on how to set up feature
 > permissions for API keys.
 
-## Find folders
+## Find folders by criteria
 
 This method helps find folders by name, status, category, or favorite.
 
@@ -280,7 +280,7 @@ The method returns a successful status when the folder is updated.
 }
 ```
 
-## Delete a folder
+## Delete a folder by id
 
 This method allows you to delete a folder by its id.
 
