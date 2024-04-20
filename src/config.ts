@@ -1,10 +1,10 @@
 import Utils from './utils';
 import Validators from './validators';
-import { ClientOptions } from './client';
-import { Logger, type LoggerOptions } from './logger';
 import { SparkError } from './error';
 import { Authorization } from './auth';
 import { Interceptor } from './http';
+import { ClientOptions } from './client';
+import { Logger, LoggerOptions } from './logger';
 import { DEFAULT_MAX_RETRIES, DEFAULT_TIMEOUT_IN_MS, ENV_VARS } from './constants';
 
 export class Config {
@@ -26,7 +26,7 @@ export class Config {
     token = Utils.readEnv(ENV_VARS.BEARER_TOKEN),
     ...options
   }: ClientOptions = {}) {
-    const numberValidator = Validators.positiveInteger;
+    const numberValidator = Validators.positiveInteger.getInstance();
 
     this.baseUrl = BaseUrl.from({ url: baseUrl, tenant: options?.tenant, env: options?.env });
     this.auth = Authorization.from({ apiKey, token, oauth: options?.oauth });
@@ -116,8 +116,8 @@ export class BaseUrl {
   }
 
   static from(options: { url?: string; tenant?: string; env?: string } = {}): BaseUrl {
-    const stringValidator = Validators.emptyString;
-    const urlValidator = Validators.baseUrl;
+    const stringValidator = Validators.emptyString.getInstance();
+    const urlValidator = Validators.baseUrl.getInstance();
 
     if (urlValidator.isValid(options?.url)) {
       const url = new URL(options.url!);
@@ -126,12 +126,14 @@ export class BaseUrl {
       if (stringValidator.isValid(tenant, 'tenant name is required')) {
         return new this(url.origin, tenant!);
       }
-    }
-
-    if (options?.env && options?.tenant) {
+    } else if (options?.env && options?.tenant) {
       const env = options.env.trim().toLowerCase();
       const tenant = options.tenant.trim().toLowerCase();
       return new this(`https://excel.${env}.coherent.global`, tenant);
+    } else {
+      // capture errors for missing parameters
+      stringValidator.isValid(options?.env, 'environment name is missing') &&
+        stringValidator.isValid(options?.tenant, 'tenant name is missing');
     }
 
     const errors = urlValidator.errors.concat(stringValidator.errors);

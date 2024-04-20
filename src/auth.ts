@@ -1,6 +1,6 @@
-import Utils, { type Maybe, StringUtils } from './utils';
-import { SparkError } from './error';
+import Utils, { Maybe, StringUtils } from './utils';
 import { ENV_VARS } from './constants';
+import { SparkError } from './error';
 import { Config } from './config';
 import { Logger } from './logger';
 

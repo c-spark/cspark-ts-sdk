@@ -1,7 +1,7 @@
-import { type Maybe } from './utils';
+import { Maybe } from './utils';
 import { Config } from './config';
-import { LogLevel, type LoggerOptions } from './logger';
-import { Authorization, type OAuthMethod } from './auth';
+import { LogLevel, LoggerOptions } from './logger';
+import { Authorization, OAuthMethod } from './auth';
 import * as API from './resources';
 
 /**

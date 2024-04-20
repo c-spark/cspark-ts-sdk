@@ -20,7 +20,7 @@ yarn add @cspark/sdk
 To use the SDK, you need a Coherent Spark account that lets you access the following:
 
 - User authentication ([API key][api-key-docs], [bearer token][bearer-token-docs]
-  or [OAuth2 client credentials][oauth2-docs] details)
+  or [OAuth2.0 client credentials][oauth2-docs] details)
 - Base URL (including the environment and tenant name)
 - Spark service URI (to locate a specific resource):
   - `folder` - the folder name where the service is located
@@ -237,12 +237,12 @@ OAuth2.0 Client Credentials flow:
 - `Spark.service.download(uri)` downloads the excel file of a service.
 - `Spark.service.recompile(uri)` recompiles a service using specific compiler version.
 - `Spark.service.validate(uri, data)` validates input data using static or dynamic validations.
-- `Spark.service.export(uri, data)` exports Spark services as a zip file.
+- `Spark.service.export(uri)` exports Spark services as a zip file.
 - `Spark.service.import(data)` imports Spark services from a zip file into the Spark platform.
 
 [Log History API](./docs/history.md) - manages service execution logs:
 
-- `Spark.service.log.rehydrate(uri, [callId])` rehydrates the executed model into the original Excel file.
+- `Spark.service.log.rehydrate(uri, callId)` rehydrates the executed model into the original Excel file.
 - `Spark.service.log.download(uri, [type])` downloads service execution logs as `csv` or `json` file.
 
 [ImpEx API](./docs/impex.md) - imports and exports Spark services:

@@ -1,10 +1,11 @@
 import { type Readable as ByteStream } from 'stream';
-import nodeFetch, { RequestInit } from 'node-fetch';
+import nodeFetch, { RequestInit, FetchError } from 'node-fetch';
 
 import { Config } from './config';
+import { Streamer } from './streaming';
 import { JsonData, Serializable } from './data';
 import { SparkApiError, SparkSdkError } from './error';
-import { Streamer } from './streaming';
+import { RETRY_RANDOMIZATION_FACTOR } from './constants';
 import Utils, { loadModule } from './utils';
 
 export interface Multipart {
@@ -99,9 +100,8 @@ export interface HttpResponse<T = JsonData> {
 }
 
 export interface Interceptor {
-  // FIXME: should be nullable and async
-  beforeRequest(options: HttpOptions): HttpOptions;
-  afterRequest<T>(response: HttpResponse<T>): HttpResponse<T>;
+  beforeRequest?(options: HttpOptions): HttpOptions;
+  afterRequest?<T>(response: HttpResponse<T>): HttpResponse<T>;
 }
 
 /**
@@ -111,7 +111,6 @@ export interface Interceptor {
  * @returns {int} The number of milliseconds after which to retry
  */
 export function getRetryTimeout(retries: number, baseInterval: number = 1): number {
-  const RETRY_RANDOMIZATION_FACTOR = 1.5;
   const randomization = Math.random() * RETRY_RANDOMIZATION_FACTOR;
   return Math.ceil(retries * baseInterval * 1000 * randomization);
 }
@@ -213,14 +212,21 @@ async function readStream(stream: ByteStream): Promise<Buffer> {
 export async function _fetch<T = JsonData>(resource: string, options: HttpOptions): Promise<HttpResponse<T>> {
   // Apply beforeRequest interceptors if any.
   const fetchOptions: typeof options = options.config.hasInterceptors
-    ? options.config.interceptors.reduce((opts: HttpOptions, i: Interceptor) => i.beforeRequest(opts), options)
+    ? options.config.interceptors.reduce((o: HttpOptions, i: Interceptor) => i.beforeRequest?.(o) ?? o, options)
     : options;
   const { config } = fetchOptions;
 
   // prepare and make request using fetch API
   const requestInit = await createRequestInit(fetchOptions);
   const url = Utils.formatUrl(resource, fetchOptions.params);
-  const response = await nodeFetch(url, { ...requestInit, redirect: 'manual', timeout: config.timeout });
+  const response = await (async () => {
+    try {
+      return await nodeFetch(url, { ...requestInit, redirect: 'manual', timeout: config.timeout });
+    } catch (cause) {
+      if (cause instanceof FetchError) throw new SparkSdkError({ message: `failed to fetch <${resource}>`, cause });
+      throw cause; // may be abort signal
+    }
+  })();
 
   // Extract response data and headers
   const contentType = response.headers.get('content-type') ?? '';
@@ -244,7 +250,7 @@ export async function _fetch<T = JsonData>(resource: string, options: HttpOption
   // Apply afterRequest interceptors if any.
   if (config?.hasInterceptors) {
     httpResponse = config.interceptors.reduce(
-      (rsp: HttpResponse<T>, i: Interceptor) => i.afterRequest(rsp),
+      (rsp: HttpResponse<T>, i: Interceptor) => i.afterRequest?.(rsp) ?? rsp,
       httpResponse,
     ) as HttpResponse<T>;
   }
@@ -310,7 +316,11 @@ export async function _download(
       };
     })
     .catch(async (response) => {
-      const raw = new TextDecoder().decode(await response.arrayBuffer());
+      if (response instanceof Error) {
+        throw new SparkSdkError({ message: `failed to fetch <${resource}>`, cause: response });
+      }
+
+      const raw = new TextDecoder().decode(await response?.arrayBuffer());
       throw SparkApiError.when(response.status, {
         message: `failed to download resource from <${resource}>`,
         cause: {

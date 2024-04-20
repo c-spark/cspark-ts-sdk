@@ -42,10 +42,10 @@ documentation, the ESM format will be used in all the code snippets.
 ### Transactional vs Non-Transactional Requests
 
 Most of the SDK methods are non-transactional, meaning that a request is expected
-to perform one task only, i.e, hitting one Spark endpoint only. In short, a
+to perform one task only (i.e, hitting one Spark endpoint only). In short, a
 stateless roundtrip.
-However, for convenience purposes, we provide some methods that can execute a series
-of tasks, handle their internal states, and return the final result in a single call
+However, for convenience purposes, some of the methods can execute a series of
+tasks, handle their internal states, and return the final result in a single call
 (or _transaction)_.
 
 For example:
@@ -120,7 +120,7 @@ where `T` is the type of the data returned by the API.
 ## HTTP Error
 
 When attempting to communicate with the API, the SDK will wrap any sort of failure
-(any error during the round trip) into a `SparkApiError`, which will include
+(any error during the roundtrip) into a `SparkApiError`, which will include
 the HTTP `status` code of the response and the `requestId`, a unique identifier
 of the request. The most common errors are:
 
@@ -153,8 +153,8 @@ as well as the obtained response if available.
       "url": "https://excel.my-env.coherent.global/api/v1/product/delete/uuid",
       "method": "DELETE",
       "headers": {
-        "User-Agent": "Coherent Spark SDK v0.1.0-beta.1 (Node v16.14.2)",
-        "x-spark-ua": "agent=cspark-ts-sdk/0.1.0-beta.1; env=Node/16.14.2",
+        "User-Agent": "Coherent Spark SDK v0.1.0 (Node v16.14.2)",
+        "x-spark-ua": "agent=cspark-ts-sdk/0.1.0; env=Node/16.14.2",
         "x-request-id": "uuid",
         "x-tenant-name": "my-tenant",
         "Content-Type": "application/json"
@@ -227,8 +227,8 @@ In this particular example, the built URL will be: `https://excel.my-env.coheren
 
 ### Error Handling
 
-The SDK will only throw `SparkError` errors when something goes wrong. Whether you
-choose to use `async-await` or `promise-chaining`, you should always handle
+The SDK will only throw `SparkError` errors when something goes wrong unless a request gets aborted.
+Whether you choose to use `async-await` or `promise-chaining`, you should always handle
 these errors to avoid disrupting the flow of your application.
 
 ```ts
@@ -275,8 +275,7 @@ The SDK is a powerful tool that will help you interact with the Spark platform
 in a more efficient and streamlined way, which is intended to help you save time
 and effort during development.
 
-If you have any questions or need help with the SDK, feel free to reach out to
-the Coherent team. We are always happy to help you with your projects and provide
-you with the support you need.
+If you have any questions or need help with the SDK, feel to create an issue or
+submit a pull request on the [GitHub repository](../CONTRIBUTING.md).
 
 Happy coding! 🚀
