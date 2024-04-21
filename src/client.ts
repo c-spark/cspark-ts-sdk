@@ -1,5 +1,5 @@
 import { Maybe } from './utils';
-import { Config } from './config';
+import { Config, type BaseUrl } from './config';
 import { LogLevel, LoggerOptions } from './logger';
 import { Authorization, OAuthMethod } from './auth';
 import * as API from './resources';
@@ -29,7 +29,7 @@ export interface ClientOptions extends OAuthMethod {
    * Overrides the default base URL for the API, e.g., "https://excel.us.coherent.global/tenant-name/"
    * By default, it'll be read from `process.env['CSPARK_BASE_URL']`.
    */
-  baseUrl?: Maybe<string>;
+  baseUrl?: Maybe<string | BaseUrl>;
 
   /**
    * Overrides the inferred tenant name from `baseUrl`.

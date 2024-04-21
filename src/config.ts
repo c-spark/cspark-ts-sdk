@@ -21,14 +21,14 @@ export class Config {
   readonly extraHeaders: Record<string, string> = {};
 
   constructor({
-    baseUrl = Utils.readEnv(ENV_VARS.BASE_URL),
+    baseUrl: url = Utils.readEnv(ENV_VARS.BASE_URL),
     apiKey = Utils.readEnv(ENV_VARS.API_KEY),
     token = Utils.readEnv(ENV_VARS.BEARER_TOKEN),
     ...options
   }: ClientOptions = {}) {
     const numberValidator = Validators.positiveInteger.getInstance();
 
-    this.baseUrl = BaseUrl.from({ url: baseUrl, tenant: options?.tenant, env: options?.env });
+    this.baseUrl = url instanceof BaseUrl ? url : BaseUrl.from({ url, tenant: options?.tenant, env: options?.env });
     this.auth = Authorization.from({ apiKey, token, oauth: options?.oauth });
     this.timeout = numberValidator.isValid(options.timeout) ? options.timeout! : DEFAULT_TIMEOUT_IN_MS;
     this.maxRetries = numberValidator.isValid(options.maxRetries) ? options.maxRetries! : DEFAULT_MAX_RETRIES;
@@ -108,7 +108,7 @@ export class Config {
 export class BaseUrl {
   readonly url!: URL;
 
-  private constructor(
+  protected constructor(
     baseUrl: string,
     readonly tenant: string,
   ) {
