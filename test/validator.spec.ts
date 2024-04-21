@@ -17,7 +17,7 @@ describe('Validators', () => {
     validator.errors.forEach((error) => expect(error).toBeInstanceOf(SparkError));
   });
 
-  it('should able to reset errors', () => {
+  it('should be able to reset errors', () => {
     const validator = Validators.positiveInteger.getInstance();
     expect(validator.isValid(-1)).toBeFalsy();
     expect(validator.isValid(0)).toBeFalsy();

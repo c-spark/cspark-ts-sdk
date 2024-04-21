@@ -2,20 +2,20 @@ import Spark from '@cspark/sdk';
 import LocalServer, { TestBaseUrl } from './server';
 
 describe('Spark.folder', () => {
-  const local = new LocalServer();
+  const localSever = new LocalServer();
   let spark: Spark;
 
   beforeAll(async () => {
-    await local.start();
+    await localSever.start();
     spark = new Spark({
-      baseUrl: new TestBaseUrl(`http://${local.hostname}:${local.port}`, 'my-tenant'),
+      baseUrl: new TestBaseUrl(`http://${localSever.hostname}:${localSever.port}`, 'my-tenant'),
       apiKey: 'open',
       logger: false,
     });
   });
 
   afterAll(async () => {
-    return local.stop();
+    return localSever.stop();
   });
 
   it('should retrieve a list of folder categories', async () => {

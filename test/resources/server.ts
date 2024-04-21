@@ -18,12 +18,11 @@ export default class LocalServer {
   private server: http.Server;
   nextResponseHandler?: ResponseHandler;
 
-  constructor(readonly hostname?: string) {
+  constructor(readonly hostname: string = 'localhost') {
     this.server = http.createServer(this.router);
     this.server.keepAliveTimeout = 1000;
     this.server.on('error', (err) => console.log(err.stack));
     this.server.on('connection', (socket) => socket.setTimeout(1500));
-    this.hostname = hostname || 'localhost';
   }
 
   async start() {

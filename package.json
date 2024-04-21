@@ -21,7 +21,7 @@
     "lib"
   ],
   "engines": {
-    "node": ">=16.0.0"
+    "node": "^14.13.1 || >=16.0.0"
   },
   "scripts": {
     "start": "echo \">>> no start command specified\" && exit 0",

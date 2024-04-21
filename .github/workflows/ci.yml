@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [dev]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        node: ['14.13.1', '16.0.0']
+        exclude:
+          # On Windows, run tests with only the LTS environments.
+          - os: windows-latest
+            node: '16.0.0'
+          # On macOS, run tests with only the LTS environments.
+          - os: macOS-latest
+            node: '16.0.0'
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Run unit tests
+        run: yarn test
