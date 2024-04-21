@@ -9,14 +9,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        node: ['14.13.1', '16.0.0']
-        exclude:
-          # On Windows, run tests with only the LTS environments.
-          - os: windows-latest
-            node: '16.0.0'
-          # On macOS, run tests with only the LTS environments.
-          - os: macOS-latest
-            node: '16.0.0'
+        node: ['14.15.0', '16.0.0']
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -26,7 +19,7 @@ jobs:
           node-version: ${{ matrix.node }}
 
       - name: Install dependencies
-        run: yarn install
+        run: npm install
 
       - name: Run unit tests
-        run: yarn test
+        run: npm test

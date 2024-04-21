@@ -1,5 +1,5 @@
-import http from 'node:http';
-import { once } from 'node:events';
+import http from 'http';
+import { once } from 'events';
 import { BaseUrl } from '@cspark/sdk/config';
 
 // Use a custom BaseUrl for testing purposes.
