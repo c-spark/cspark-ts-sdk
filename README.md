@@ -13,7 +13,7 @@ npm install @cspark/sdk
 yarn add @cspark/sdk
 ```
 
-> 🫣 This package requires [Node.js 16](https://nodejs.org/en/download/current) or higher.
+> 🫣 This package requires [Node.js ^14.15.0 or >= 16](https://nodejs.org/en/download/current).
 
 ## Usage
 

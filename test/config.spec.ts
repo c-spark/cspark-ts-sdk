@@ -48,6 +48,15 @@ describe('Config', () => {
     expect(config.timeout).toBe(Constants.DEFAULT_TIMEOUT_IN_MS);
     expect(config.maxRetries).toBe(Constants.DEFAULT_MAX_RETRIES);
   });
+
+  it('should be copied with new values', () => {
+    const config = new Config({ baseUrl: BASE_URL, apiKey: API_KEY, tenant: TENANT_NAME });
+    const newConfig = config.copyWith({ apiKey: 'new-key', tenant: 'new-tenant' });
+    expect(newConfig).toBeDefined();
+    expect(newConfig.baseUrl.value).toBe(BASE_URL);
+    expect(newConfig.auth.apiKey).toBe('new-key');
+    expect(newConfig.baseUrl.tenant).toBe('new-tenant');
+  });
 });
 
 describe('BaseUrl', () => {

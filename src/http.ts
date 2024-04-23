@@ -212,7 +212,10 @@ async function readStream(stream: ByteStream): Promise<Buffer> {
 export async function _fetch<T = JsonData>(resource: string, options: HttpOptions): Promise<HttpResponse<T>> {
   // Apply beforeRequest interceptors if any.
   const fetchOptions: typeof options = options.config.hasInterceptors
-    ? options.config.interceptors.reduce((o: HttpOptions, i: Interceptor) => i.beforeRequest?.(o) ?? o, options)
+    ? Array.from(options.config.interceptors).reduce(
+        (o: HttpOptions, i: Interceptor) => i.beforeRequest?.(o) ?? o,
+        options,
+      )
     : options;
   const { config } = fetchOptions;
 
@@ -249,7 +252,7 @@ export async function _fetch<T = JsonData>(resource: string, options: HttpOption
 
   // Apply afterRequest interceptors if any.
   if (config?.hasInterceptors) {
-    httpResponse = config.interceptors.reduce(
+    httpResponse = Array.from(config.interceptors).reduce(
       (rsp: HttpResponse<T>, i: Interceptor) => i.afterRequest?.(rsp) ?? rsp,
       httpResponse,
     ) as HttpResponse<T>;

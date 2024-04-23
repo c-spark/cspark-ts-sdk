@@ -12,6 +12,20 @@ describe('Spark.folder', () => {
       apiKey: 'open',
       logger: false,
     });
+    spark.config.extraHeaders['my-extra-header'] = 'my-extra-value';
+    spark.config.interceptors.add({
+      beforeRequest: (req) => {
+        expect(req.headers).toHaveProperty('x-tenant-name');
+        expect(req.headers).toHaveProperty('x-request-id');
+        expect(req.headers).toHaveProperty('x-spark-ua');
+        expect(req.headers).toHaveProperty('my-extra-header');
+        return req;
+      },
+      afterRequest: (res) => {
+        expect(res.status).toBeGreaterThanOrEqual(200);
+        return res;
+      },
+    });
   });
 
   afterAll(async () => {

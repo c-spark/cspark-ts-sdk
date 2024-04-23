@@ -9,7 +9,6 @@ import { DEFAULT_MAX_RETRIES, DEFAULT_TIMEOUT_IN_MS, ENV_VARS } from './constant
 
 export class Config {
   readonly #options!: string;
-  readonly #interceptors: Set<Interceptor> = new Set<Interceptor>();
 
   readonly baseUrl!: BaseUrl;
   readonly auth!: Authorization;
@@ -19,6 +18,7 @@ export class Config {
   readonly allowBrowser!: boolean;
   readonly logger!: LoggerOptions;
   readonly extraHeaders: Record<string, string> = {};
+  readonly interceptors: Set<Interceptor> = new Set<Interceptor>();
 
   constructor({
     baseUrl: url = Utils.readEnv(ENV_VARS.BASE_URL),
@@ -58,45 +58,28 @@ export class Config {
     }
   }
 
-  get interceptors(): Interceptor[] {
-    return Array.from(this.#interceptors);
-  }
-
   get hasInterceptors(): boolean {
-    return this.#interceptors.size > 0;
+    return this.interceptors.size > 0;
   }
 
   get hasHeaders(): boolean {
     return !Utils.isEmptyObject(this.extraHeaders);
   }
 
-  /**
-   * Adds interceptors to the configuration (experimental feature).
-   * @param interceptors - methods to intercept requests and responses
-   */
-  addInterceptors(...interceptors: Interceptor[]): void {
-    interceptors.forEach((interceptor) => {
-      if (this.#interceptors.has(interceptor)) return;
-      this.#interceptors.add(interceptor);
-    });
-  }
-
-  addHeaders(headers: Record<string, string>): void {
-    Object.entries(headers).forEach(([key, value]) => {
-      this.extraHeaders[key] = value;
-    });
-  }
-
   copyWith(options: ClientOptions = {}): Config {
+    const { baseUrl: url, tenant, env = this.environment } = options;
     return new Config({
-      baseUrl: options.baseUrl || this.baseUrl.full,
-      apiKey: options.apiKey || this.auth.apiKey,
-      token: options.token || this.auth.token,
-      oauth: options.oauth || this.auth.oauth,
-      timeout: options.timeout || this.timeout,
-      maxRetries: options.maxRetries || this.maxRetries,
-      allowBrowser: options.allowBrowser || this.allowBrowser,
-      env: options.env || this.environment,
+      baseUrl:
+        url instanceof BaseUrl
+          ? url
+          : BaseUrl.from({ url: url ?? this.baseUrl.value, tenant: tenant ?? this.baseUrl.tenant, env }),
+      apiKey: options.apiKey ?? this.auth.apiKey,
+      token: options.token ?? this.auth.token,
+      oauth: options.oauth ?? this.auth.oauth,
+      timeout: options.timeout ?? this.timeout,
+      maxRetries: options.maxRetries ?? this.maxRetries,
+      allowBrowser: options.allowBrowser ?? this.allowBrowser,
+      logger: options.logger ?? this.logger,
     });
   }
 
@@ -115,6 +98,15 @@ export class BaseUrl {
     this.url = new URL(baseUrl + '/' + tenant);
   }
 
+  /**
+   * Builds a base URL from the given parameters.
+   * @param {object} options - the distinct parameters to build a base URL from.
+   * @param {string} options.url - the base URL to use.
+   * @param {string} options.tenant - the tenant name.
+   * @param {string} options.env - the environment name to use.
+   * @returns a BaseUrl
+   * @throws {SparkError} if a base URL cannot be built from the given parameters.
+   */
   static from(options: { url?: string; tenant?: string; env?: string } = {}): BaseUrl {
     const stringValidator = Validators.emptyString.getInstance();
     const urlValidator = Validators.baseUrl.getInstance();
@@ -143,14 +135,17 @@ export class BaseUrl {
     });
   }
 
+  /** The base URL */
   get value(): string {
     return this.url.origin;
   }
 
+  /** The base URL including the tenant name. */
   get full(): string {
     return this.url.toString();
   }
 
+  /** The base URL for the keycloak service. */
   get oauth2(): string {
     return this.to('keycloak').concat('/auth/realms/', this.tenant);
   }
