@@ -125,7 +125,7 @@ async function createRequestInit(options: HttpOptions): Promise<RequestInit> {
   } = options;
 
   const { contentType, body } = await (async (): Promise<{
-    contentType: string;
+    contentType: string | undefined;
     body: ByteStream | string;
   }> => {
     if (options.multiparts) {
@@ -134,11 +134,15 @@ async function createRequestInit(options: HttpOptions): Promise<RequestInit> {
 
       for (const item of options.multiparts) {
         if (item.fileStream) {
-          const buffer = await readStream(item.fileStream);
-          formData.append(item.name, buffer, {
-            filename: item.fileName ?? 'file',
-            contentType: item.contentType ?? 'application/octet-stream',
-          });
+          if (Utils.isBrowser()) {
+            formData.append(item.name, item.fileStream, { filename: item.fileName ?? 'file' });
+          } else {
+            const buffer = await readStream(item.fileStream);
+            formData.append(item.name, buffer, {
+              filename: item.fileName ?? 'file',
+              contentType: item.contentType ?? 'application/octet-stream',
+            });
+          }
         } else if (item.data) {
           formData.append(item.name, Serializable.serialize(item.data));
         } else {
@@ -150,7 +154,7 @@ async function createRequestInit(options: HttpOptions): Promise<RequestInit> {
       }
 
       return {
-        contentType: `multipart/form-data; boundary=${formData.getBoundary()}`,
+        contentType: Utils.isBrowser() ? undefined : `multipart/form-data; boundary=${formData.getBoundary()}`,
         body: formData,
       };
     }
@@ -175,10 +179,12 @@ async function createRequestInit(options: HttpOptions): Promise<RequestInit> {
     }
   })();
 
+  if (contentType) headers['Content-Type'] = contentType;
+
   return {
     method,
     body: method === 'GET' ? undefined : body,
-    headers: { ...headers, 'Content-Type': contentType, ...options.config.auth?.asHeader },
+    headers: { ...headers, ...options.config.auth?.asHeader },
     signal: options.cancellationToken,
   };
 }

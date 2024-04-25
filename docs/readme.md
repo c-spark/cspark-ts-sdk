@@ -236,7 +236,6 @@ import Spark, { SparkError } from '@cspark/sdk';
 
 async function main(folderName) {
   try {
-    // omit previous code for brevity
     const spark = new Spark(); // settings are loaded from the environment variables
     const response = await spark.folder.create(folderName);
 
@@ -269,13 +268,57 @@ const logger = Logger.of(/* logger options if needed */);
 logger.error('something went wrong');
 ```
 
+### File Handling
+
+There are various ways of handling files in both Node and Browser environments.
+To keep things simple and easy, the following ways are recommended:
+
+**In Node environments**, you can use the `fs` (file system) module to read and write
+files from/to disks. The recommended way to read and write files is to use the
+`createReadStream` and `createWriteStream` methods, respectively. Below is an
+example of how to create a folder with a cover image:
+
+```ts
+import { createReadStream } from 'fs';
+
+const cover = {
+  image: createReadStream('path/to/image.png'), // be mindful of the OS.
+  fileName: 'image.png',
+};
+
+// omit Spark initialization for brevity
+await spark.folder.create({ name: 'my-folder', cover });
+```
+
+**In Browser environments**, you may use the `File` object to read files. Here's
+the same example as above but for the browser environment:
+
+```html
+<body>
+  <input type="file" id="file-input" />
+  <button onclick="createFolder()">Create Folder</button>
+  <script>
+    async function createFolder() {
+      const fileInput = document.getElementById('file-input');
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      const cover = { image: file, fileName: file.name };
+
+      // omit Spark initialization for brevity
+      await spark.folder.create({ name: 'my-folder', cover });
+    }
+  </script>
+</body>
+```
+
 ## Support and Feedback
 
 The SDK is a powerful tool that will help you interact with the Spark platform
-in a more efficient and streamlined way, which is intended to help you save time
-and effort during development.
+in a more efficient and streamlined way. It is built to help you save time and
+focus on what matters most: integrating Spark into your applications.
 
-If you have any questions or need help with the SDK, feel to create an issue or
-submit a pull request on the [GitHub repository](../CONTRIBUTING.md).
+If you have any questions or need help with the SDK, feel free to create an issue
+or submit a pull request following these [guidelines](../CONTRIBUTING.md).
 
 Happy coding! 🚀

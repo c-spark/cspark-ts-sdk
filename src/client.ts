@@ -72,12 +72,12 @@ export interface ClientOptions extends OAuthMethod {
   /**
    * Enables or disables the logger for the client.
    * if `true`, determines whether client should print colorful logs (including timestamps).
-   * if `string`, client will print logs with the specified log level.
+   * if `LogLevel | LogLevel[]`, client will print logs with the specified log level(s).
    * if `LoggerOptions`, client will print logs with the specified options.
    *
    * @see LoggerOptions for more details.
    */
-  logger?: boolean | LogLevel | LoggerOptions;
+  logger?: boolean | LogLevel | LogLevel[] | LoggerOptions;
 }
 
 export class Client {
