@@ -3,7 +3,7 @@ import { Config } from '../config';
 import { JsonData } from '../data';
 import { SparkError } from '../error';
 import { Logger } from '../logger';
-import { userAgentHeader, sdkUaHeader } from '../version';
+import { about as sdkInfo, sdkUaHeader } from '../version';
 import { _fetch, _download, HttpOptions, HttpResponse } from '../http';
 import Utils, { StringUtils, Maybe, sanitizeUri } from '../utils';
 
@@ -28,7 +28,7 @@ export abstract class ApiResource {
   protected get defaultHeaders(): Record<string, string> {
     return {
       ...this.config.extraHeaders,
-      'User-Agent': userAgentHeader,
+      'User-Agent': sdkInfo,
       'x-spark-ua': sdkUaHeader,
       'x-request-id': Utils.getUuid(),
       'x-tenant-name': this.config.baseUrl.tenant,

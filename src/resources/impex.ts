@@ -40,8 +40,8 @@ export class ImpEx {
    * consider using the `exports` resource directly.
    */
   async export(params: ExportParams): Promise<HttpResponse[]> {
+    const { maxRetries = this.config.maxRetries, retryInterval = this.config.retryInterval } = params ?? {};
     const exporter = this.exports;
-    const { maxRetries = this.config.maxRetries, retryInterval } = params ?? {};
     const response = await exporter.initiate(params);
 
     const status = await exporter.getStatus(response.data.id, { maxRetries, retryInterval });
@@ -66,8 +66,8 @@ export class ImpEx {
    * consider using the `imports` resource directly.
    */
   async import(params: ImportParams): Promise<HttpResponse<ImportResult>> {
+    const { maxRetries = this.config.maxRetries, retryInterval = this.config.retryInterval } = params ?? {};
     const importer = this.imports;
-    const { maxRetries = this.config.maxRetries, retryInterval } = params ?? {};
     const response = await importer.initiate(params);
 
     const status = await importer.getStatus(response.data.id, { maxRetries, retryInterval });
@@ -159,7 +159,7 @@ class Export extends ApiResource {
    * @returns {Promise<HttpResponse<ExportResult>>} - the export job results when completed
    */
   async getStatus(jobId: string, params: StatusParams = {}): Promise<HttpResponse<ExportResult>> {
-    const { url: statusUrl, maxRetries = this.config.maxRetries, retryInterval = 2 } = params;
+    const { maxRetries = this.config.maxRetries, retryInterval = this.config.retryInterval } = params;
     const url = Uri.from(undefined, {
       base: this.config.baseUrl.full,
       version: 'api/v4',
@@ -168,7 +168,7 @@ class Export extends ApiResource {
 
     let retries = 0;
     while (retries < maxRetries) {
-      const response = await this.request<ExportResult>(statusUrl ?? url.value);
+      const response = await this.request<ExportResult>(params.url ?? url.value);
       if (response.data?.status === 'closed' || response.data?.status === 'completed') {
         this.logger.log(`export job <${jobId}> completed`);
         return response;
@@ -252,7 +252,7 @@ class Import extends ApiResource {
    * @returns {Promise<HttpResponse<ImportResult>>} - the import job results when completed
    */
   async getStatus(jobId: string, params: StatusParams = {}): Promise<HttpResponse<ImportResult>> {
-    const { url: statusUrl, maxRetries = this.config.maxRetries, retryInterval = 2 } = params;
+    const { maxRetries = this.config.maxRetries, retryInterval = this.config.retryInterval } = params;
     const url = Uri.from(undefined, {
       base: this.config.baseUrl.full,
       version: 'api/v4',
@@ -261,7 +261,7 @@ class Import extends ApiResource {
 
     let retries = 0;
     while (retries < maxRetries) {
-      const response = await this.request<ImportResult>(statusUrl ?? url.value);
+      const response = await this.request<ImportResult>(params.url ?? url.value);
       if (response.data?.status === 'closed' || response.data?.status === 'completed') {
         this.logger.log(`import job <${jobId}> completed`);
         return response;

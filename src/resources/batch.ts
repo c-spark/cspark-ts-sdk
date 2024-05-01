@@ -6,7 +6,7 @@ import Utils, { DateUtils, StringUtils } from '../utils';
 
 import { ApiResource, Uri, UriParams } from './base';
 
-export class BatchService extends ApiResource {
+export class Batch extends ApiResource {
   /**
    * Execute multiple records synchronously.
    * @param {string | UriParams} uri - how to locate the service

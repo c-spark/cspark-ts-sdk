@@ -5,7 +5,7 @@ import { HttpResponse, Multipart, getRetryTimeout } from '../http';
 import Utils, { StringUtils, DateUtils } from '../utils';
 
 import { History } from './history';
-import { BatchService } from './batch';
+import { Batch } from './batch';
 import { ImpEx, ImportResult } from './impex';
 import { ApiResource, ApiResponse, Uri, UriParams } from './base';
 import { GetSwaggerParams, GetVersionsParams, GetSchemaParams, GetMetadataParams } from './types';
@@ -18,7 +18,7 @@ export class Service extends ApiResource {
   }
 
   get batch() {
-    return new BatchService(this.config);
+    return new Batch(this.config);
   }
 
   get log() {
@@ -257,7 +257,7 @@ export class Service extends ApiResource {
   }
 
   /**
-   * Migrate of a Spark service from one workspace to another.
+   * Migrate a Spark service from one workspace to another.
    * @param {MigrateParams} params - the migration parameters
    * @returns - the migration results
    *
@@ -267,7 +267,7 @@ export class Service extends ApiResource {
     const exported = await this.export(params);
     if (exported.length === 0) {
       this.logger.warn('no service entities to migrate');
-      return { exports: exported, imports: [] };
+      return { exports: exported, imports: null };
     }
 
     const imported = await this.import({ ...params, file: exported[0].buffer });
@@ -350,7 +350,7 @@ class Compilation extends ApiResource {
    * @returns {Promise<HttpResponse<CompilationStatus>>} - the compilation status.
    */
   async getStatus(params: GetStatusParams): Promise<HttpResponse<CompilationStatus>> {
-    const { jobId, maxRetries = this.config.maxRetries, retryInterval = 2 } = params;
+    const { jobId, maxRetries = this.config.maxRetries, retryInterval = this.config.retryInterval } = params;
     const url = Uri.from(params, { base: this.config.baseUrl.full, endpoint: `getcompilationprogess/${jobId}` });
 
     let retries = 0;

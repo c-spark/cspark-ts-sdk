@@ -6,7 +6,7 @@ export class OAuth2 extends ApiResource {
     const baseUrl = this.config.baseUrl.oauth2;
     const url = Uri.from(undefined, { base: baseUrl, version: 'protocol', endpoint: 'openid-connect/token' });
     const { clientId: client_id, clientSecret: client_secret } = this.config.auth.oauth?.toJson() ?? {};
-    const body = { grant_type: 'client_credentials', client_id, client_secret };
+    const body = { grant_type: this.config.auth.oauth?.flow, client_id, client_secret };
 
     return this.request<AccessTokenModel>(url.value, {
       method: 'POST',

@@ -53,7 +53,8 @@ export class History extends ApiResource {
   async download(uri: string, type: DownloadFileType): Promise<HttpResponse<LogStatus>>;
   async download(params: DownloadParams): Promise<HttpResponse<LogStatus>>;
   async download(uri: string | DownloadParams, type?: DownloadFileType): Promise<HttpResponse<LogStatus>> {
-    const { folder, service, maxRetries = this.config.maxRetries, retryInterval = 3, ...params } = Uri.toParams(uri);
+    const { folder, service, ...params } = Uri.toParams(uri);
+    const { maxRetries = this.config.maxRetries, retryInterval = this.config.retryInterval } = params;
     type = (type ?? params?.type ?? 'json').toLowerCase() as DownloadFileType;
 
     const response = await this.downloads.initiate(uri, type);
@@ -126,7 +127,8 @@ class LogDownload extends ApiResource {
   async getStatus(uri: string, type: DownloadFileType): Promise<HttpResponse<LogStatus>>;
   async getStatus(params: GetStatusParams): Promise<HttpResponse<LogStatus>>;
   async getStatus(uri: string | GetStatusParams, type?: DownloadFileType): Promise<HttpResponse<LogStatus>> {
-    const { jobId, maxRetries = this.config.maxRetries, retryInterval = 3, ...params } = Uri.toParams(uri);
+    const { jobId, ...params } = Uri.toParams(uri);
+    const { maxRetries = this.config.maxRetries, retryInterval = this.config.retryInterval } = params;
     type = (type ?? params?.type ?? 'json').toLowerCase() as DownloadFileType;
     const url = Uri.from(params, { base: this.config.baseUrl.full, endpoint: `log/download${type}/status/${jobId}` });
 
