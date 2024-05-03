@@ -113,6 +113,10 @@ export class Client {
     return new API.Service(this.config);
   }
 
+  get batch(): API.Batch {
+    return new API.Batch(this.config);
+  }
+
   get file(): API.File {
     return new API.File(this.config);
   }

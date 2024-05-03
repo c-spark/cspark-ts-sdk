@@ -241,7 +241,7 @@ class MyResource extends ApiResource {
       endpoint: 'my/resource',
     });
 
-    return this.request(url.value, { method: 'GET' });
+    return this.request(url, { method: 'GET' });
   }
 }
 

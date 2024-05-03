@@ -8,7 +8,7 @@ export class OAuth2 extends ApiResource {
     const { clientId: client_id, clientSecret: client_secret } = this.config.auth.oauth?.toJson() ?? {};
     const body = { grant_type: this.config.auth.oauth?.flow, client_id, client_secret };
 
-    return this.request<AccessTokenModel>(url.value, {
+    return this.request<AccessTokenModel>(url, {
       method: 'POST',
       contentType: 'application/x-www-form-urlencoded',
       body,
