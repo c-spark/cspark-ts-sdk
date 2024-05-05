@@ -12,7 +12,7 @@ export type JsonValue = { readonly [key: string]: JsonData | undefined };
  *
  * This is used to serialize (or stringify) and deserialize (jsonify) network data.
  */
-export abstract class Serializable<From, To = string> {
+export abstract class Serializable<From = any, To = string> {
   constructor(readonly value: any) {}
 
   get isEmpty(): boolean {
