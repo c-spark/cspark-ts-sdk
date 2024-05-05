@@ -48,21 +48,19 @@ export abstract class Serializable<From, To = string> {
   }
 
   get asString(): Stringified {
-    return new Stringified((this.isString ? this.value : this.serialize()) as string);
+    return new Stringified(this.value);
   }
 
   get asJson(): Jsonified {
-    return new Jsonified((this.isObject ? this.value : this.deserialize()) as JsonData);
+    return new Jsonified(this.value);
   }
 
-  serialize(): To {
-    return (StringUtils.isString(this.value) ? this.value : JSON.stringify(this.value)) as To;
-  }
+  abstract serialize(): To;
 
   abstract deserialize(): From;
 
   static serialize<T>(data: T | undefined): string {
-    return StringUtils.isString(data) ? (data as string) : JSON.stringify(data);
+    return StringUtils.isString(data) ? data : JSON.stringify(data);
   }
 
   static deserialize<R>(data: string, onError?: () => R): R {
@@ -90,11 +88,11 @@ export abstract class Serializable<From, To = string> {
  */
 export class Stringified extends Serializable<string, JsonData> {
   serialize(): JsonData {
-    return Serializable.deserialize(this.value, () => null);
+    return Serializable.deserialize<JsonData>(this.value, () => null);
   }
 
   deserialize(): string {
-    return this.value;
+    return String(this.value);
   }
 }
 
