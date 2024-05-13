@@ -10,12 +10,19 @@ import { ApiResource, Uri, UriOptions, UriParams } from './base';
 export class Batch extends ApiResource {
   /**
    * Executes multiple records synchronously.
-   * @param {string | UriParams} uri - how to locate the service
+   * @param {string} uri - how to locate the service
    * @param {ExecuteParams<Inputs>} params - the execution parameters (inputs, metadata, etc.)
    * @returns {Promise<HttpResponse<ServiceExecuted<Outputs>>} the executed service outputs
-   * @throws {SparkError} if the service execution fails
+   * @throws {SparkError} if the service execution fails or no inputs are provided.
    */
   execute<Inputs, Outputs>(uri: string, params: ExecuteParams<Inputs>): Promise<HttpResponse<ServiceExecuted<Outputs>>>;
+  /**
+   * Executes multiple records synchronously.
+   * @param {UriParams} uri - use fine-grained details to locate the service
+   * @param {ExecuteParams<Inputs>} params - the execution parameters (inputs, metadata, etc.)
+   * @returns {Promise<HttpResponse<ServiceExecuted<Outputs>>} the executed service outputs
+   * @throws {SparkError} if the service execution fails or no inputs are provided.
+   */
   execute<Inputs, Outputs>(
     uri: Omit<UriParams, 'proxy'>,
     params: ExecuteParams<Inputs>,
@@ -62,8 +69,8 @@ export class Batch extends ApiResource {
       version_by_timestamp: DateUtils.isDate(params?.activeSince) ? params.activeSince.toISOString() : undefined,
       subservice: Array.isArray(params.subservices) ? params.subservices.join(',') : params.subservices,
       output: params.output,
-      call_purpose: params.callPurpose ?? SPARK_SDK,
-      source_system: params.sourceSystem,
+      call_purpose: params.callPurpose ?? 'Async Batch Execution',
+      source_system: params.sourceSystem ?? SPARK_SDK,
       correlation_id: params.correlationId,
       unique_record_key: params.inputKey,
     };
@@ -88,8 +95,8 @@ export class Batch extends ApiResource {
       version_by_timestamp: DateUtils.isDate(data?.activeSince) ? data.activeSince.toISOString() : undefined,
       subservice: Array.isArray(data?.subservices) ? data.subservices.join(',') : data?.subservices,
       output: data?.output,
-      call_purpose: data?.callPurpose ?? SPARK_SDK,
-      source_system: data?.sourceSystem,
+      call_purpose: data?.callPurpose ?? 'Sync Batch Execution',
+      source_system: data?.sourceSystem ?? SPARK_SDK,
       correlation_id: data?.correlationId,
     };
 

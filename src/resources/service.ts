@@ -315,14 +315,14 @@ export class Service extends ApiResource {
   }
 
   #buildExecuteBody<T>(uri: UriParams, { data = {}, inputs: initialInputs, raw }: ExecuteParams<T> = {}): ExecuteBody {
-    const defaultValues = { callPurpose: SPARK_SDK, compilerType: 'Neuron', version: uri.version };
+    const defaultValues = { callPurpose: 'Single Execution', compilerType: 'Neuron', version: uri.version };
     const metadata = {
       service_uri: data?.serviceUri,
       service_id: data?.serviceId ?? uri.serviceId,
       version: data?.version ?? defaultValues.version,
       version_id: data?.versionId ?? uri.versionId,
       transaction_date: DateUtils.isDate(data?.activeSince) ? data.activeSince.toISOString() : undefined,
-      source_system: data?.sourceSystem,
+      source_system: data?.sourceSystem ?? SPARK_SDK,
       correlation_id: data?.correlationId,
       call_purpose: data?.callPurpose ?? defaultValues.callPurpose,
       array_outputs: Array.isArray(data?.outputs) ? data.outputs.join(',') : data?.outputs,
