@@ -45,7 +45,7 @@ describe('Spark.service', () => {
         method: 'POST',
         body: {
           request_data: { inputs: {} }, // default inputs
-          request_meta: { call_purpose: 'Single Execution', compiler_type: 'Neuron' },
+          request_meta: { call_purpose: 'Single Execution', compiler_type: 'Neuron', source_system: 'Spark JS SDK' },
         },
       }),
     );
@@ -73,7 +73,7 @@ describe('Spark.service', () => {
         method: 'POST',
         body: {
           request_data: { inputs: { my_input: 13 } }, // user-defined inputs
-          request_meta: { call_purpose: 'Single Execution', compiler_type: 'Neuron' },
+          request_meta: { call_purpose: 'Single Execution', compiler_type: 'Neuron', source_system: 'Spark JS SDK' },
         },
       }),
     );

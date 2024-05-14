@@ -18,10 +18,10 @@ import { join } from 'path';
 
 /**
  * To run this example, replace the placeholder values with your own.
- * - sourcePath: path to the data file (be mindful of the base path)
- * - sparkOptions: Spark settings (base URL, token and timeout)
- * - serviceUri: locate service to execute (folder and service name)
- * - chunkSize: number of records to process in each chunk
+ * - `sourcePath`: path to the data file (be mindful of the base path)
+ * - `sparkOptions`: Spark settings (base URL, authentication and timeout)
+ * - `serviceUri`: locate service to execute (folder and service name)
+ * - `chunkSize`: number of records to process in each chunk
  *
  * If you are using TypeScript, you may choose to define the input and output schemas:
  * - Inputs: input schema

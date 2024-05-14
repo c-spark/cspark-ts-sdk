@@ -28,7 +28,7 @@ import Papa from 'papaparse';
 /**
  * To run this example, replace the placeholder values with your own.
  * - `sourcePath`: path to the data file (be mindful of the base path)
- * - `sparkOptions`: Spark settings (base URL, token and timeout)
+ * - `sparkOptions`: Spark settings (base URL, authentication and timeout)
  * - `serviceUri`: service URI to execute (folder and service name)
  * - `chunkSize`: number of records to process in each chunk
  * - `headers`: list of headers for the CSV file (the file should contain data only)

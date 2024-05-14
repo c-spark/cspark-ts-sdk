@@ -20,9 +20,9 @@ import { join } from 'path';
 
 /**
  * To run this example, replace the placeholder values with your own.
- * - sourcePath: path to the data file (be mindful of the base path)
- * - sparkOptions: Spark settings (base URL, token and timeout)
- * - serviceUri: locate service to execute (folder and service name)
+ * - `sourcePath`: path to the data file (be mindful of the base path)
+ * - `sparkOptions`: Spark settings (base URL, authentication and timeout)
+ * - `serviceUri`: locate service to execute (folder and service name)
  *
  * If you are using TypeScript, you may choose to define the input and output schemas:
  * - Inputs: input schema
